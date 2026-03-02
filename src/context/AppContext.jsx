@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useMemo, useCallback } from 'react';
 import {
   fetchAnnouncements,
   fetchFAQs,
@@ -110,7 +110,7 @@ export function AppProvider({ children }) {
     }
   }, [state.accessibility, state.settings, state.currentLanguage]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
       // Fetch all data in parallel
@@ -160,19 +160,21 @@ export function AppProvider({ children }) {
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  };
+  }, [dispatch]);
+
+  const actions = useMemo(() => ({
+    setLanguage: (language) => dispatch({ type: 'SET_LANGUAGE', payload: language }),
+    updateAccessibility: (settings) => dispatch({ type: 'UPDATE_ACCESSIBILITY', payload: settings }),
+    updateSettings: (settings) => dispatch({ type: 'UPDATE_SETTINGS', payload: settings }),
+    updateActivity: () => dispatch({ type: 'UPDATE_ACTIVITY' }),
+    resetToDefault: () => dispatch({ type: 'RESET_TO_DEFAULT' }),
+    refreshData: fetchData
+  }), [dispatch, fetchData]);
 
   const value = {
     state,
     dispatch,
-    actions: {
-      setLanguage: (language) => dispatch({ type: 'SET_LANGUAGE', payload: language }),
-      updateAccessibility: (settings) => dispatch({ type: 'UPDATE_ACCESSIBILITY', payload: settings }),
-      updateSettings: (settings) => dispatch({ type: 'UPDATE_SETTINGS', payload: settings }),
-      updateActivity: () => dispatch({ type: 'UPDATE_ACTIVITY' }),
-      resetToDefault: () => dispatch({ type: 'RESET_TO_DEFAULT' }),
-      refreshData: fetchData
-    }
+    actions
   };
 
   return (

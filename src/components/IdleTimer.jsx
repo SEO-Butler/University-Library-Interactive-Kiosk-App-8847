@@ -21,7 +21,7 @@ function IdleTimer() {
     actions.updateActivity();
     setShowWarning(false);
     setCountdown(30);
-    
+
     // Clear existing timers
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
@@ -34,7 +34,7 @@ function IdleTimer() {
     warningTimeoutRef.current = setTimeout(() => {
       setShowWarning(true);
       setCountdown(30);
-      
+
       // Start countdown
       countdownRef.current = setInterval(() => {
         setCountdown(prev => {
@@ -54,12 +54,12 @@ function IdleTimer() {
   const handleTimeout = () => {
     setShowWarning(false);
     setCountdown(30);
-    
+
     // Clear all timers
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
     if (countdownRef.current) clearInterval(countdownRef.current);
-    
+
     // Navigate to home
     navigate('/');
     actions.resetToDefault();
@@ -72,7 +72,7 @@ function IdleTimer() {
   // Set up event listeners for user activity
   useEffect(() => {
     const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    
+
     const resetOnActivity = () => {
       if (showWarning) return; // Don't reset if warning is showing
       resetTimer();
@@ -100,6 +100,11 @@ function IdleTimer() {
     resetTimer();
   }, [location.pathname]);
 
+  // SVG circle parameters for the countdown ring
+  const circleRadius = 54;
+  const circumference = 2 * Math.PI * circleRadius;
+  const strokeDashoffset = circumference - (countdown / 30) * circumference;
+
   return (
     <AnimatePresence>
       {showWarning && (
@@ -107,51 +112,98 @@ function IdleTimer() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 z-50 flex items-center justify-center"
         >
+          {/* Backdrop with blur */}
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl"
+            initial={{ backdropFilter: 'blur(0px)' }}
+            animate={{ backdropFilter: 'blur(12px)' }}
+            exit={{ backdropFilter: 'blur(0px)' }}
+            className="absolute inset-0 bg-secondary-900/60"
+          />
+
+          {/* Warning Card */}
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0, y: 30 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="relative glass-strong rounded-3xl p-10 max-w-lg mx-4 text-center shadow-2xl"
           >
-            <SafeIcon icon={FiClock} className="text-6xl text-orange-500 mx-auto mb-6" />
-            
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">
-              Session Timeout Warning
+            {/* Countdown Ring */}
+            <div className="relative inline-flex items-center justify-center mb-8">
+              <svg width="140" height="140" className="-rotate-90">
+                {/* Background ring */}
+                <circle
+                  cx="70"
+                  cy="70"
+                  r={circleRadius}
+                  fill="none"
+                  stroke="rgba(14, 165, 233, 0.1)"
+                  strokeWidth="8"
+                />
+                {/* Progress ring */}
+                <motion.circle
+                  cx="70"
+                  cy="70"
+                  r={circleRadius}
+                  fill="none"
+                  stroke={countdown <= 10 ? '#f43f5e' : countdown <= 20 ? '#f59e0b' : '#0ea5e9'}
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  animate={{ strokeDashoffset }}
+                  transition={{ duration: 0.8, ease: "easeInOut" }}
+                />
+              </svg>
+              {/* Countdown number */}
+              <motion.div
+                key={countdown}
+                initial={{ scale: 1.3, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                className="absolute inset-0 flex items-center justify-center"
+              >
+                <span className={`text-5xl font-extrabold tabular-nums ${
+                  countdown <= 10 ? 'text-rose-500' : countdown <= 20 ? 'text-amber-500' : 'text-primary-600'
+                }`}>
+                  {countdown}
+                </span>
+              </motion.div>
+            </div>
+
+            <h3 className="text-2xl font-bold text-secondary-800 mb-3">
+              Still there?
             </h3>
-            
-            <p className="text-gray-600 mb-6">
-              You will be returned to the home screen in <strong>{countdown}</strong> seconds due to inactivity.
+
+            <p className="text-secondary-500 mb-8 text-lg leading-relaxed">
+              This session will return to the home screen in{' '}
+              <strong className={`${countdown <= 10 ? 'text-rose-600' : 'text-secondary-700'}`}>
+                {countdown}
+              </strong>{' '}
+              seconds due to inactivity.
             </p>
-            
-            <div className="space-y-4">
-              <button
+
+            <div className="space-y-3">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={handleContinue}
-                className="w-full bg-primary-500 hover:bg-primary-600 text-white py-4 px-6 rounded-xl transition-colors touch-button text-lg font-medium"
+                className="w-full bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white py-4 px-6 rounded-2xl transition-all duration-300 touch-button text-lg font-semibold shadow-lg shadow-primary-500/25"
               >
                 Continue Using Kiosk
-              </button>
-              
-              <button
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={handleTimeout}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-6 rounded-xl transition-colors touch-button flex items-center justify-center space-x-2"
+                className="w-full glass hover:bg-white/80 text-secondary-600 py-3.5 px-6 rounded-2xl transition-all duration-300 touch-button flex items-center justify-center gap-2 font-medium"
               >
-                <SafeIcon icon={FiHome} />
-                <span>Return to Home Now</span>
-              </button>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="mt-6">
-              <div className="bg-gray-200 rounded-full h-2">
-                <motion.div
-                  className="bg-orange-500 h-2 rounded-full"
-                  initial={{ width: '100%' }}
-                  animate={{ width: '0%' }}
-                  transition={{ duration: 30, ease: 'linear' }}
-                />
-              </div>
+                <SafeIcon icon={FiHome} className="text-lg" />
+                <span>Return to Home</span>
+              </motion.button>
             </div>
           </motion.div>
         </motion.div>

@@ -55,7 +55,7 @@ function App() {
   return (
     <AppProvider>
       <Router>
-        <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50">
+        <div className="min-h-screen app-bg noise-overlay">
           <IdleTimer />
           <AnimatedRoutes />
         </div>

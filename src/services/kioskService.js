@@ -1,12 +1,11 @@
-import supabase from '../lib/supabase';
+const API_BASE = '/api';
 
 export async function fetchAnnouncements() {
-  const { data, error } = await supabase
-    .from('announcements_kiosk')
-    .select('*')
-    .order('date', { ascending: false });
-
-  if (error) {
+  try {
+    const res = await fetch(`${API_BASE}/announcements`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (error) {
     console.error('Error fetching announcements:', error);
     return [
       {
@@ -27,17 +26,14 @@ export async function fetchAnnouncements() {
       }
     ];
   }
-
-  return data;
 }
 
 export async function fetchFAQs() {
-  const { data, error } = await supabase
-    .from('faqs_kiosk')
-    .select('*')
-    .order('category');
-
-  if (error) {
+  try {
+    const res = await fetch(`${API_BASE}/faqs`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (error) {
     console.error('Error fetching FAQs:', error);
     return [
       {
@@ -66,17 +62,14 @@ export async function fetchFAQs() {
       }
     ];
   }
-
-  return data;
 }
 
 export async function fetchQRLinks() {
-  const { data, error } = await supabase
-    .from('qr_links_kiosk')
-    .select('*')
-    .order('name');
-
-  if (error) {
+  try {
+    const res = await fetch(`${API_BASE}/qr-links`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (error) {
     console.error('Error fetching QR links:', error);
     return [
       {
@@ -99,17 +92,14 @@ export async function fetchQRLinks() {
       }
     ];
   }
-
-  return data;
 }
 
 export async function fetchLibraryFloors() {
-  const { data, error } = await supabase
-    .from('library_floors_kiosk')
-    .select('*')
-    .order('id');
-
-  if (error) {
+  try {
+    const res = await fetch(`${API_BASE}/floors`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (error) {
     console.error('Error fetching library floors:', error);
     return [
       { id: 1, name: 'Ground Floor' },
@@ -117,17 +107,14 @@ export async function fetchLibraryFloors() {
       { id: 3, name: 'Level 3' }
     ];
   }
-
-  return data;
 }
 
 export async function fetchLibraryLocations() {
-  const { data, error } = await supabase
-    .from('library_locations_kiosk')
-    .select('*')
-    .order('floor_id');
-
-  if (error) {
+  try {
+    const res = await fetch(`${API_BASE}/locations`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (error) {
     console.error('Error fetching library locations:', error);
     return [
       {
@@ -150,165 +137,109 @@ export async function fetchLibraryLocations() {
       }
     ];
   }
-
-  return data;
 }
 
 export async function fetchKioskSettings() {
-  const { data, error } = await supabase
-    .from('kiosk_settings')
-    .select('*');
-
-  if (error) {
+  try {
+    const res = await fetch(`${API_BASE}/settings`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (error) {
     console.error('Error fetching kiosk settings:', error);
     return null;
   }
-
-  return data;
 }
 
 export async function updateKioskSettings(settingKey, settingValue) {
-  const { data, error } = await supabase
-    .from('kiosk_settings')
-    .update({ setting_value: settingValue, updated_at: new Date() })
-    .eq('setting_key', settingKey)
-    .select();
-
-  if (error) {
+  try {
+    const res = await fetch(`${API_BASE}/settings/${settingKey}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ setting_value: settingValue })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (error) {
     console.error('Error updating kiosk settings:', error);
     return null;
   }
-
-  return data;
 }
 
 // Admin functions
 export async function addAnnouncement(announcement) {
-  const { data, error } = await supabase
-    .from('announcements_kiosk')
-    .insert([announcement])
-    .select();
-
-  if (error) {
-    console.error('Error adding announcement:', error);
-    throw error;
-  }
-
-  return data;
+  const res = await fetch(`${API_BASE}/announcements`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(announcement)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
 }
 
 export async function updateAnnouncement(id, announcement) {
-  const { data, error } = await supabase
-    .from('announcements_kiosk')
-    .update(announcement)
-    .eq('id', id)
-    .select();
-
-  if (error) {
-    console.error('Error updating announcement:', error);
-    throw error;
-  }
-
-  return data;
+  const res = await fetch(`${API_BASE}/announcements/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(announcement)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
 }
 
 export async function deleteAnnouncement(id) {
-  const { error } = await supabase
-    .from('announcements_kiosk')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error deleting announcement:', error);
-    throw error;
-  }
-
+  const res = await fetch(`${API_BASE}/announcements/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return true;
 }
 
-// Similar functions for FAQs, QR links, etc.
 export async function addFAQ(faq) {
-  const { data, error } = await supabase
-    .from('faqs_kiosk')
-    .insert([faq])
-    .select();
-
-  if (error) {
-    console.error('Error adding FAQ:', error);
-    throw error;
-  }
-
-  return data;
+  const res = await fetch(`${API_BASE}/faqs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(faq)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
 }
 
 export async function updateFAQ(id, faq) {
-  const { data, error } = await supabase
-    .from('faqs_kiosk')
-    .update(faq)
-    .eq('id', id)
-    .select();
-
-  if (error) {
-    console.error('Error updating FAQ:', error);
-    throw error;
-  }
-
-  return data;
+  const res = await fetch(`${API_BASE}/faqs/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(faq)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
 }
 
 export async function deleteFAQ(id) {
-  const { error } = await supabase
-    .from('faqs_kiosk')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error deleting FAQ:', error);
-    throw error;
-  }
-
+  const res = await fetch(`${API_BASE}/faqs/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return true;
 }
 
 export async function addQRLink(link) {
-  const { data, error } = await supabase
-    .from('qr_links_kiosk')
-    .insert([link])
-    .select();
-
-  if (error) {
-    console.error('Error adding QR link:', error);
-    throw error;
-  }
-
-  return data;
+  const res = await fetch(`${API_BASE}/qr-links`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(link)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
 }
 
 export async function updateQRLink(id, link) {
-  const { data, error } = await supabase
-    .from('qr_links_kiosk')
-    .update(link)
-    .eq('id', id)
-    .select();
-
-  if (error) {
-    console.error('Error updating QR link:', error);
-    throw error;
-  }
-
-  return data;
+  const res = await fetch(`${API_BASE}/qr-links/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(link)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
 }
 
 export async function deleteQRLink(id) {
-  const { error } = await supabase
-    .from('qr_links_kiosk')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error deleting QR link:', error);
-    throw error;
-  }
-
+  const res = await fetch(`${API_BASE}/qr-links/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return true;
 }

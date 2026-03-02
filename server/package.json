@@ -1,0 +1,10 @@
+{
+  "name": "kiosk-server",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "express": "^4.21.0",
+    "sql.js": "^1.11.0",
+    "cors": "^2.8.5"
+  }
+}
