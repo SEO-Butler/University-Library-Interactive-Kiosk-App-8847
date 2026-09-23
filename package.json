@@ -1,18 +1,20 @@
 {
   "name": "library-information-kiosk",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "npm --prefix server run dev",
     "build": "npm run lint && vite build",
     "lint": "eslint .",
     "lint:error": "eslint . --quiet",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "npm --prefix server test",
+    "setup": "npm ci && npm --prefix server ci"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
-    "@supabase/supabase-js": "^2.39.0",
     "date-fns": "4.1.0",
     "framer-motion": "^11.0.8",
     "react": "^18.3.1",

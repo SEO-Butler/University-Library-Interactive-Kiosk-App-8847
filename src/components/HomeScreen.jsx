@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { FiMap, FiHelpCircle, FiBell, FiSettings, FiClock, FiCalendar } from 'react-icons/fi';
+import { FiMap, FiHelpCircle, FiBell, FiClock, FiCalendar } from 'react-icons/fi';
 import { MdQrCode2, MdAccessibilityNew } from 'react-icons/md';
 import SafeIcon from '../common/SafeIcon';
 import RefreshButton from './common/RefreshButton';
@@ -41,9 +41,63 @@ function Clock() {
   );
 }
 
+const navigationTiles = [
+  {
+    id: 'wayfinding',
+    title: 'Library Map',
+    subtitle: 'Find your way around',
+    icon: FiMap,
+    color: 'bg-blue-500',
+    hoverColor: 'hover:bg-blue-600',
+    path: '/wayfinding'
+  },
+  {
+    id: 'faq',
+    title: 'Help & FAQ',
+    subtitle: 'Get answers quickly',
+    icon: FiHelpCircle,
+    color: 'bg-green-500',
+    hoverColor: 'hover:bg-green-600',
+    path: '/faq'
+  },
+  {
+    id: 'qr',
+    title: 'Quick Links',
+    subtitle: 'QR codes for mobile',
+    icon: MdQrCode2,
+    color: 'bg-purple-500',
+    hoverColor: 'hover:bg-purple-600',
+    path: '/qr-generator'
+  },
+  {
+    id: 'announcements',
+    title: 'News & Events',
+    subtitle: 'Latest updates',
+    icon: FiBell,
+    color: 'bg-orange-500',
+    hoverColor: 'hover:bg-orange-600',
+    path: '/announcements'
+  }
+];
+
+// Tailwind only generates classes it can see, so the column count can't be interpolated.
+const quickInfoColumns = { 1: 'md:grid-cols-1', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3' };
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } },
+  exit: { opacity: 0 }
+};
+
+const tileVariants = {
+  hidden: { y: 50, opacity: 0 },
+  visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100, damping: 15 } }
+};
+
 function HomeScreen() {
   const navigate = useNavigate();
   const { state, actions } = useApp();
+  const { site } = state;
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -52,64 +106,20 @@ function HomeScreen() {
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
-  const navigationTiles = [
+  // The quick info bar shows only the details the library has filled in.
+  const quickInfo = [
+    { title: "Today's Hours", value: site.openingHours },
+    { title: 'WiFi Network', value: site.wifiNetwork },
     {
-      id: 'wayfinding',
-      title: 'Library Map',
-      subtitle: 'Find your way around',
-      icon: FiMap,
-      color: 'bg-blue-500',
-      hoverColor: 'hover:bg-blue-600',
-      path: '/wayfinding'
-    },
-    {
-      id: 'faq',
-      title: 'Help & FAQ',
-      subtitle: 'Get answers quickly',
-      icon: FiHelpCircle,
-      color: 'bg-green-500',
-      hoverColor: 'hover:bg-green-600',
-      path: '/faq'
-    },
-    {
-      id: 'qr',
-      title: 'Quick Links',
-      subtitle: 'QR codes for mobile',
-      icon: MdQrCode2,
-      color: 'bg-purple-500',
-      hoverColor: 'hover:bg-purple-600',
-      path: '/qr-generator'
-    },
-    {
-      id: 'announcements',
-      title: 'News & Events',
-      subtitle: 'Latest updates',
-      icon: FiBell,
-      color: 'bg-orange-500',
-      hoverColor: 'hover:bg-orange-600',
-      path: '/announcements'
+      title: 'Need Help?',
+      value: [site.helpDeskName, site.helpPhone].filter(Boolean).join(': ')
     }
-  ];
-
-  const handleTileClick = (path) => {
-    navigate(path);
-  };
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } },
-    exit: { opacity: 0 }
-  };
-
-  const tileVariants = {
-    hidden: { y: 50, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 15 } }
-  };
+  ].filter((item) => item.value);
 
   // Only show loading spinner if we're actually loading data from the API
   // and not just on initial render
   if (state.isLoading && state.initialLoadComplete === false) {
-    return <LoadingSpinner message="Welcome to the Library Kiosk" />;
+    return <LoadingSpinner message={`Welcome to the ${site.libraryName}`} />;
   }
 
   return (
@@ -123,10 +133,10 @@ function HomeScreen() {
       {/* Header */}
       <motion.header variants={tileVariants} className="text-center mb-12 relative">
         <h1 className="text-6xl font-bold text-primary-800 mb-4">
-          University Library
+          {site.libraryName}
         </h1>
         <p className="text-2xl text-secondary-600 mb-8">
-          Welcome! How can we help you today?
+          {site.welcomeMessage}
         </p>
 
         <Clock />
@@ -147,7 +157,10 @@ function HomeScreen() {
             key={tile.id}
             variants={tileVariants}
             whileTap={{ scale: 0.98 }}
-            onClick={() => handleTileClick(tile.path)}
+            onClick={() => navigate(tile.path)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') navigate(tile.path);
+            }}
             className={`${tile.color} ${tile.hoverColor} text-white rounded-3xl p-8 cursor-pointer shadow-xl transition-colors touch-button group`}
             role="button"
             tabIndex={0}
@@ -170,45 +183,28 @@ function HomeScreen() {
       </motion.div>
 
       {/* Quick Info Bar */}
-      <motion.div
-        variants={tileVariants}
-        className="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-          <div className="space-y-2">
-            <h4 className="font-semibold text-primary-800">Today's Hours</h4>
-            <p className="text-secondary-600">7:00 AM - 11:00 PM</p>
+      {quickInfo.length > 0 && (
+        <motion.div
+          variants={tileVariants}
+          className="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6"
+        >
+          <div className={`grid grid-cols-1 ${quickInfoColumns[quickInfo.length]} gap-6 text-center`}>
+            {quickInfo.map((item) => (
+              <div key={item.title} className="space-y-2">
+                <h4 className="font-semibold text-primary-800">{item.title}</h4>
+                <p className="text-secondary-600">{item.value}</p>
+              </div>
+            ))}
           </div>
-          <div className="space-y-2">
-            <h4 className="font-semibold text-primary-800">WiFi Network</h4>
-            <p className="text-secondary-600">University-WiFi</p>
-          </div>
-          <div className="space-y-2">
-            <h4 className="font-semibold text-primary-800">Need Help?</h4>
-            <p className="text-secondary-600">Front Desk: Ext. 2150</p>
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
 
-      {/* Admin and Accessibility Buttons */}
+      {/* Accessibility Button */}
       <div className="fixed bottom-8 right-8 flex flex-col space-y-4">
         <motion.button
           variants={tileVariants}
           whileTap={{ scale: 0.9 }}
-          onClick={() => {
-            navigate('/admin');
-          }}
-          className="bg-gray-700 hover:bg-gray-800 text-white rounded-full p-4 shadow-lg transition-colors touch-button"
-          aria-label="Admin Panel"
-        >
-          <SafeIcon icon={FiSettings} className="text-2xl" />
-        </motion.button>
-        <motion.button
-          variants={tileVariants}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => {
-            navigate('/accessibility');
-          }}
+          onClick={() => navigate('/accessibility')}
           className="bg-primary-600 hover:bg-primary-700 text-white rounded-full p-4 shadow-lg transition-colors touch-button"
           aria-label="Accessibility Options"
         >

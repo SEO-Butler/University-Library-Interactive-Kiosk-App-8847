@@ -1,10 +1,17 @@
 [Unit]
-Description=Library kiosk static web server (127.0.0.1 only)
+Description=Library kiosk web server (kiosk screen, CMS and API)
+After=kiosk-storage.service
+Wants=kiosk-storage.service
 
 [Service]
+Environment=HOST=0.0.0.0
 Environment=PORT=8080
+Environment=NODE_ENV=production
+Environment=STATIC_DIR=%h/kiosk/app/www
 EnvironmentFile=-%h/kiosk/kiosk.conf
-ExecStart=/usr/bin/python3 -m http.server ${PORT} --bind 127.0.0.1 --directory %h/kiosk/www
+EnvironmentFile=-%h/kiosk/kiosk.env
+WorkingDirectory=%h/kiosk/app/server
+ExecStart=%h/kiosk/node/bin/node index.js
 Restart=always
 RestartSec=2
 

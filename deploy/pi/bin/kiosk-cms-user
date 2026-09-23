@@ -1,0 +1,16 @@
+#!/bin/bash
+# Manage CMS accounts on this kiosk. Examples:
+#   kiosk-cms-user create-user jane --role editor --name "Jane Doe"
+#   kiosk-cms-user set-password admin
+#   kiosk-cms-user list-users
+# Runs the published server's CLI with the service's environment.
+set -euo pipefail
+. "$(dirname "$(readlink -f "$0")")/kiosk-common.sh"
+load_env
+export HOST PORT S3_ENDPOINT S3_BUCKET
+if [ ! -f "$APP_DIR/server/cli.js" ]; then
+  echo "The app is not deployed yet. Run $KIOSK_HOME/bin/kiosk-deploy first." >&2
+  exit 1
+fi
+cd "$APP_DIR/server"
+exec "$NODE_DIR/bin/node" cli.js "$@"

@@ -1,10 +1,30 @@
 #!/bin/bash
-# Restart the local server if it stops answering. Run by kiosk-health.timer.
+# Restart local services that stop answering. Run by kiosk-health.timer.
 # (lwrespawn already relaunches Chromium if it exits.)
 set -u
 . "$(dirname "$(readlink -f "$0")")/kiosk-common.sh"
 
-if ! curl -fs --max-time 5 -o /dev/null "$KIOSK_URL"; then
+HEALTH="$(curl -s --max-time 15 -o /dev/stdout -w '\n%{http_code}' "${KIOSK_URL}api/health" 2>/dev/null)" || HEALTH=""
+CODE="${HEALTH##*$'\n'}"
+BODY="${HEALTH%$'\n'*}"
+
+if [ -z "$CODE" ] || [ "$CODE" = "000" ]; then
   log "Server not responding at $KIOSK_URL, restarting kiosk-web"
   systemctl --user restart kiosk-web.service
+  exit 0
 fi
+
+case "$BODY" in
+  *'"storage":"down"'*)
+    log "Object storage down, restarting kiosk-storage"
+    systemctl --user restart kiosk-storage.service
+    ;;
+esac
+case "$BODY" in
+  *'"db":"down"'*)
+    log "Database not reachable: $BODY (check: systemctl status postgresql)"
+    ;;
+  *'"db":"unconfigured"'*)
+    log "DATABASE_URL not set: run sudo $REPO_DIR/deploy/pi/root/setup-postgres.sh"
+    ;;
+esac

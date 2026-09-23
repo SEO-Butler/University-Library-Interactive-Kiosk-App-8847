@@ -1,0 +1,52 @@
+# Local development stack: PostgreSQL + S3-compatible object storage.
+#   docker compose up -d
+#   set -a; . ./.env; set +a; npm run dev:server     # API on :8080
+#   npm run dev                                      # kiosk on :5173, CMS on :5173/cms/
+#
+# The Raspberry Pi does not use Docker; see deploy/pi/README.md.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: kiosk
+      POSTGRES_PASSWORD: kiosk
+      POSTGRES_DB: kiosk
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./.data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kiosk"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # RustFS is API-compatible with MinIO. MinIO's own community builds are archived
+  # (no security updates); to use an existing MinIO instead, point S3_ENDPOINT at it
+  # or swap in the commented service below.
+  storage:
+    image: rustfs/rustfs:1.0.0-glibc
+    environment:
+      RUSTFS_ACCESS_KEY: kiosk
+      RUSTFS_SECRET_KEY: kiosksecret123
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - ./.data/objects:/data
+
+  # storage:
+  #   image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772
+  #   command: server /data --console-address ":9001"
+  #   environment:
+  #     MINIO_ROOT_USER: kiosk
+  #     MINIO_ROOT_PASSWORD: kiosksecret123
+  #   ports:
+  #     - "127.0.0.1:9000:9000"
+  #     - "127.0.0.1:9001:9001"
+  #   volumes:
+  #     - ./.data/objects:/data

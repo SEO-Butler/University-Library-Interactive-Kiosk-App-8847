@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
+!.env.example
+
+# Local development data (docker compose volumes)
+.data

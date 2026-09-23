@@ -1,26 +1,18 @@
 import React, { createContext, useContext, useReducer, useEffect, useMemo, useCallback, useRef } from 'react';
-import {
-  fetchAnnouncements,
-  fetchFAQs,
-  fetchQRLinks,
-  fetchLibraryFloors,
-  fetchLibraryLocations,
-  fetchKioskSettings,
-  updateKioskSettings
-} from '../services/kioskService';
+import { fetchKioskContent } from '../lib/api';
 
 const AppContext = createContext();
 
-const SETTINGS_STORAGE_KEY = 'kioskSettings';
-const CONTENT_STORAGE_KEY = 'kioskContentCache';
+// Bumped whenever the cached shape changes so an old cache is ignored.
+const CACHE_STORAGE_KEY = 'kioskContentCache.v2';
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // re-fetch content every 10 minutes
 
 export const DEFAULT_IDLE_TIMEOUT = 300000; // 5 minutes
 export const MIN_IDLE_TIMEOUT = 60000; // must exceed the 30s warning countdown
 export const MAX_IDLE_TIMEOUT = 30 * 60000;
 
-// Keeps a bad value (NaN, 0, a string) from Supabase, localStorage or the admin
-// form from making the idle timer fire immediately on every page.
+// Keeps a bad value (NaN, 0, a string) from the server or localStorage from making
+// the idle timer fire immediately on every page.
 export function clampIdleTimeout(value) {
   const ms = Number(value);
   if (!Number.isFinite(ms) || ms <= 0) return DEFAULT_IDLE_TIMEOUT;
@@ -30,7 +22,7 @@ export function clampIdleTimeout(value) {
 const defaultAccessibility = {
   highContrast: false,
   largeText: false,
-  audioEnabled: false,
+  audioEnabled: false
 };
 
 const emptyContent = {
@@ -41,15 +33,27 @@ const emptyContent = {
   locations: []
 };
 
+// Kiosk behaviour, edited in the CMS under Settings.
+const defaultSettings = {
+  idleTimeout: DEFAULT_IDLE_TIMEOUT,
+  autoResetHome: true
+};
+
+// Library details shown on the screens, edited in the CMS under Settings.
+export const defaultSite = {
+  libraryName: 'University Library',
+  welcomeMessage: 'Welcome! How can we help you today?',
+  openingHours: '',
+  wifiNetwork: '',
+  helpDeskName: 'Information Desk',
+  helpDeskLocation: 'Ground Floor',
+  helpPhone: ''
+};
+
 const initialState = {
-  currentLanguage: 'en',
   accessibility: defaultAccessibility,
-  settings: {
-    idleTimeout: DEFAULT_IDLE_TIMEOUT,
-    autoResetHome: true,
-    kioskMode: true,
-    language: 'en',
-  },
+  settings: defaultSettings,
+  site: defaultSite,
   content: emptyContent,
   isLoading: false,
   error: null,
@@ -61,80 +65,88 @@ function sanitizeSettings(settings) {
   if (!settings || typeof settings !== 'object') return clean;
   if (settings.idleTimeout !== undefined) clean.idleTimeout = clampIdleTimeout(settings.idleTimeout);
   if (typeof settings.autoResetHome === 'boolean') clean.autoResetHome = settings.autoResetHome;
-  if (typeof settings.kioskMode === 'boolean') clean.kioskMode = settings.kioskMode;
-  if (typeof settings.language === 'string' && settings.language) clean.language = settings.language;
   return clean;
 }
 
-function readJSON(key) {
+function sanitizeSite(site) {
+  const clean = {};
+  if (!site || typeof site !== 'object') return clean;
+  Object.keys(defaultSite).forEach((key) => {
+    if (typeof site[key] === 'string') clean[key] = site[key];
+  });
+  return clean;
+}
+
+function sanitizeContent(content) {
+  const clean = {};
+  if (!content || typeof content !== 'object') return clean;
+  Object.keys(emptyContent).forEach((key) => {
+    if (Array.isArray(content[key])) clean[key] = content[key];
+  });
+  return clean;
+}
+
+function readCache() {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(CACHE_STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (error) {
-    console.error(`Error reading ${key}:`, error);
+    console.error('Error reading content cache:', error);
     return null;
   }
 }
 
-function writeJSON(key, value) {
+function writeCache(value) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(value));
   } catch (error) {
-    console.error(`Error writing ${key}:`, error);
+    console.error('Error writing content cache:', error);
   }
 }
 
 function init(state) {
+  // Caches written by the previous (Supabase-based) version are no longer read.
+  try {
+    localStorage.removeItem('kioskSettings');
+    localStorage.removeItem('kioskContentCache');
+  } catch {
+    // storage unavailable; nothing to clean
+  }
   // Start from the last good content so the kiosk still works if it boots offline.
-  const cachedContent = readJSON(CONTENT_STORAGE_KEY) ?? {};
-  const content = { ...emptyContent };
-  Object.keys(emptyContent).forEach((key) => {
-    if (Array.isArray(cachedContent[key])) content[key] = cachedContent[key];
-  });
-  const savedSettings = sanitizeSettings(readJSON(SETTINGS_STORAGE_KEY)?.settings);
-  const settings = { ...state.settings, ...savedSettings };
+  const cached = readCache() ?? {};
   return {
     ...state,
-    settings,
-    currentLanguage: settings.language,
-    content,
+    content: { ...emptyContent, ...sanitizeContent(cached.content) },
+    settings: { ...defaultSettings, ...sanitizeSettings(cached.settings) },
+    site: { ...defaultSite, ...sanitizeSite(cached.site) }
   };
 }
 
 function appReducer(state, action) {
   switch (action.type) {
-    case 'SET_LANGUAGE':
-      return { ...state, currentLanguage: action.payload };
     case 'UPDATE_ACCESSIBILITY':
       return { ...state, accessibility: { ...state.accessibility, ...action.payload } };
-    case 'UPDATE_SETTINGS':
-      return { ...state, settings: { ...state.settings, ...sanitizeSettings(action.payload) } };
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
     case 'SET_ERROR':
       return { ...state, error: action.payload };
-    case 'SET_CONTENT':
-      return { ...state, content: { ...state.content, ...action.payload } };
+    case 'SET_REMOTE':
+      return {
+        ...state,
+        content: { ...emptyContent, ...action.payload.content },
+        settings: { ...defaultSettings, ...action.payload.settings },
+        site: { ...defaultSite, ...action.payload.site }
+      };
     case 'SET_INITIAL_LOAD_COMPLETE':
       return { ...state, initialLoadComplete: true };
     case 'RESET_SESSION':
-      // Clear only what the previous visitor changed. Content and admin settings stay.
-      if (state.accessibility === defaultAccessibility && state.currentLanguage === state.settings.language) {
-        return state;
-      }
-      return { ...state, accessibility: defaultAccessibility, currentLanguage: state.settings.language };
+      // Clear only what the previous visitor changed. Content and settings stay.
+      if (state.accessibility === defaultAccessibility) return state;
+      return { ...state, accessibility: defaultAccessibility };
     default:
       return state;
   }
 }
-
-const CONTENT_FETCHERS = {
-  announcements: fetchAnnouncements,
-  faqs: fetchFAQs,
-  qrLinks: fetchQRLinks,
-  floors: fetchLibraryFloors,
-  locations: fetchLibraryLocations,
-};
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(appReducer, initialState, init);
@@ -153,44 +165,26 @@ export function AppProvider({ children }) {
       dispatch({ type: 'SET_LOADING', payload: true });
     }
     try {
-      const keys = Object.keys(CONTENT_FETCHERS);
-      const [settingsResult, ...contentResults] = await Promise.allSettled([
-        fetchKioskSettings(),
-        ...keys.map((key) => CONTENT_FETCHERS[key]())
-      ]);
-
-      // Only replace sections that loaded. Failed ones keep the last good data.
-      const loaded = {};
-      contentResults.forEach((result, i) => {
-        if (result.status === 'fulfilled') loaded[keys[i]] = result.value;
-      });
-      if (Object.keys(loaded).length > 0) {
-        dispatch({ type: 'SET_CONTENT', payload: loaded });
-        writeJSON(CONTENT_STORAGE_KEY, { ...stateRef.current.content, ...loaded });
-      }
-
-      if (settingsResult.status === 'fulfilled') {
-        const general = settingsResult.value.find((s) => s.setting_key === 'general');
-        if (general?.setting_value) {
-          const remote = sanitizeSettings(general.setting_value);
-          dispatch({ type: 'UPDATE_SETTINGS', payload: remote });
-          writeJSON(SETTINGS_STORAGE_KEY, { settings: { ...stateRef.current.settings, ...remote } });
-          // Only change the visible language if no visitor has picked one this session.
-          if (remote.language && stateRef.current.currentLanguage === stateRef.current.settings.language) {
-            dispatch({ type: 'SET_LANGUAGE', payload: remote.language });
-          }
-        }
-      }
-
-      const anyFailed = [settingsResult, ...contentResults].some((r) => r.status === 'rejected');
+      const bundle = await fetchKioskContent();
+      const next = {
+        content: sanitizeContent(bundle),
+        settings: sanitizeSettings(bundle.settings?.general),
+        site: sanitizeSite(bundle.settings?.site)
+      };
+      dispatch({ type: 'SET_REMOTE', payload: next });
+      writeCache(next);
+      dispatch({ type: 'SET_ERROR', payload: null });
+    } catch (error) {
+      // Keep the last good content instead of silently swapping in placeholder data.
+      console.error('Content refresh failed:', error);
       dispatch({
         type: 'SET_ERROR',
-        payload: anyFailed ? 'Some information could not be updated. Showing the most recent saved version.' : null
+        payload: 'Some information could not be updated. Showing the most recent saved version.'
       });
-      dispatch({ type: 'SET_INITIAL_LOAD_COMPLETE' });
     } finally {
-      fetchingRef.current = false;
+      dispatch({ type: 'SET_INITIAL_LOAD_COMPLETE' });
       dispatch({ type: 'SET_LOADING', payload: false });
+      fetchingRef.current = false;
     }
   }, []);
 
@@ -205,25 +199,15 @@ export function AppProvider({ children }) {
     };
   }, [fetchData]);
 
-  // Admin-only: save the kiosk settings locally and to Supabase. Visitors' accessibility
-  // choices are never written anywhere, so they can't leak to the next user or other kiosks.
-  const saveSettings = useCallback(async (settings) => {
-    const next = { ...stateRef.current.settings, ...sanitizeSettings(settings) };
-    dispatch({ type: 'UPDATE_SETTINGS', payload: next });
-    dispatch({ type: 'SET_LANGUAGE', payload: next.language });
-    writeJSON(SETTINGS_STORAGE_KEY, { settings: next });
-    await updateKioskSettings('general', next);
-  }, []);
-
+  // Visitors' accessibility choices live only in memory, so they can't leak to the
+  // next user or to other kiosks.
   const actions = useMemo(() => ({
-    setLanguage: (language) => dispatch({ type: 'SET_LANGUAGE', payload: language }),
     updateAccessibility: (settings) => dispatch({ type: 'UPDATE_ACCESSIBILITY', payload: settings }),
-    saveSettings,
     resetSession: () => dispatch({ type: 'RESET_SESSION' }),
     refreshData: fetchData
-  }), [fetchData, saveSettings]);
+  }), [fetchData]);
 
-  const value = useMemo(() => ({ state, dispatch, actions }), [state, actions]);
+  const value = useMemo(() => ({ state, actions }), [state, actions]);
 
   return (
     <AppContext.Provider value={value}>

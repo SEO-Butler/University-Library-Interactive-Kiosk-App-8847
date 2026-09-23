@@ -11,6 +11,7 @@ import LoadingSpinner from './common/LoadingSpinner';
 function FAQ() {
   const navigate = useNavigate();
   const { state, actions } = useApp();
+  const { site } = state;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [expandedItems, setExpandedItems] = useState(new Set());
@@ -198,11 +199,11 @@ function FAQ() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white rounded-xl p-4">
               <h4 className="font-semibold text-primary-800">Visit Us</h4>
-              <p className="text-primary-600">Information Desk - Ground Floor</p>
+              <p className="text-primary-600">{[site.helpDeskName, site.helpDeskLocation].filter(Boolean).join(' - ')}</p>
             </div>
             <div className="bg-white rounded-xl p-4">
               <h4 className="font-semibold text-primary-800">Call Us</h4>
-              <p className="text-primary-600">Extension 2150</p>
+              <p className="text-primary-600">{site.helpPhone || 'Ask any member of staff'}</p>
             </div>
           </div>
         </motion.div>

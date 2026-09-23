@@ -1,0 +1,6 @@
+[Unit]
+Description=Back up the kiosk database and images
+
+[Service]
+Type=oneshot
+ExecStart=%h/kiosk/bin/kiosk-backup

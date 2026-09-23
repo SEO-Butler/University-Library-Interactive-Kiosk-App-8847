@@ -48,9 +48,10 @@ case "${1:-status}" in
   status)
     if kiosk_mode_enabled; then echo "Kiosk mode: ON"; else echo "Kiosk mode: OFF"; fi
     if curl -fs -o /dev/null "$KIOSK_URL"; then echo "Server: OK ($KIOSK_URL)"; else echo "Server: DOWN ($KIOSK_URL)"; fi
-    if [ -f "$KIOSK_HOME/www/.deployed-commit" ]; then
-      echo "Deployed commit: $(cut -c1-7 "$KIOSK_HOME/www/.deployed-commit")"
+    if [ -f "$APP_DIR/.deployed-commit" ]; then
+      echo "Deployed commit: $(cut -c1-7 "$APP_DIR/.deployed-commit")"
     fi
+    if curl -fs "${KIOSK_URL}api/health" > /dev/null; then echo "API: OK"; else echo "API: $(curl -s --max-time 5 "${KIOSK_URL}api/health" || echo DOWN)"; fi
     if pgrep -f -- "--user-data-dir=$KIOSK_PROFILE" > /dev/null; then echo "Kiosk browser: running"; else echo "Kiosk browser: not running"; fi
     ;;
   *)

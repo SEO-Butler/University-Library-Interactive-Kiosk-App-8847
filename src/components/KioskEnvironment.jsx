@@ -31,6 +31,10 @@ function KioskEnvironment() {
   const { highContrast, largeText, audioEnabled } = state.accessibility;
   const audioContextRef = useRef(null);
 
+  useEffect(() => {
+    document.title = `${state.site.libraryName} Kiosk`;
+  }, [state.site.libraryName]);
+
   // Accessibility classes go on <html> so every page, including fixed overlays and
   // rem-based sizes, picks them up.
   useEffect(() => {

@@ -1,0 +1,27 @@
+#!/bin/bash
+# Nightly backup of the database and the image store to ~/kiosk/backups.
+# Run by kiosk-backup.timer; can also be run by hand. Restore notes: deploy/pi/README.md.
+set -euo pipefail
+. "$(dirname "$(readlink -f "$0")")/kiosk-common.sh"
+load_env
+
+BACKUP_DIR="$KIOSK_HOME/backups"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+
+if [ -n "${DATABASE_URL:-}" ] && command -v pg_dump > /dev/null; then
+  pg_dump --no-owner --no-privileges "$DATABASE_URL" | gzip > "$BACKUP_DIR/db-$STAMP.sql.gz"
+  log "Database dumped to db-$STAMP.sql.gz"
+else
+  log "Skipping database dump (DATABASE_URL unset or pg_dump missing)"
+fi
+
+if [ -d "$KIOSK_HOME/data/objects" ]; then
+  tar -czf "$BACKUP_DIR/objects-$STAMP.tar.gz" -C "$KIOSK_HOME/data" objects
+  log "Images archived to objects-$STAMP.tar.gz"
+fi
+
+# Keep the newest BACKUP_KEEP of each kind.
+for prefix in db objects; do
+  ls -1t "$BACKUP_DIR"/$prefix-* 2>/dev/null | tail -n +"$((BACKUP_KEEP + 1))" | xargs -r rm -f
+done

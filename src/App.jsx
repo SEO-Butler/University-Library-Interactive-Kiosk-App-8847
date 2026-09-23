@@ -14,7 +14,6 @@ import './App.css';
 
 // Less-used screens load on demand to keep start-up parsing small on the Pi.
 const QRGenerator = lazy(() => import('./components/QRGenerator'));
-const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const AccessibilityPanel = lazy(() => import('./components/AccessibilityPanel'));
 
 // Wrapper component to handle route animations properly
@@ -30,7 +29,6 @@ const AnimatedRoutes = () => {
           <Route path="/faq" element={<FAQ />} />
           <Route path="/qr-generator" element={<QRGenerator />} />
           <Route path="/announcements" element={<Announcements />} />
-          <Route path="/admin" element={<AdminPanel />} />
           <Route path="/accessibility" element={<AccessibilityPanel />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

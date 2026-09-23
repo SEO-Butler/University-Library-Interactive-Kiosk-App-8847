@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build the app from the repo and publish it to ~/kiosk/www.
+# Build the kiosk + CMS from the repo and publish them with the API server to ~/kiosk/app.
 # Usage: kiosk-deploy [--no-reload]
 set -euo pipefail
 . "$(dirname "$(readlink -f "$0")")/kiosk-common.sh"
@@ -14,30 +14,40 @@ fi
 export PATH="$NODE_DIR/bin:$PATH"
 
 cd "$REPO_DIR"
-log "Building $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD) in $REPO_DIR"
+COMMIT="$(git rev-parse --short HEAD)"
+log "Building $(git rev-parse --abbrev-ref HEAD) @ $COMMIT in $REPO_DIR"
 
-if [ -f package-lock.json ]; then
-  npm ci --no-audit --no-fund --loglevel=error
-else
-  npm install --no-audit --no-fund --loglevel=error
-fi
+npm ci --no-audit --no-fund --loglevel=error
 npm run build
+(cd server && npm ci --omit=dev --no-audit --no-fund --loglevel=error)
 
-# Publish atomically: the server keeps serving the old copy until the swap.
+# Publish atomically: the running server keeps its files until the swap.
 # Source maps are left out; they are only useful for debugging.
-rm -rf "$KIOSK_HOME/www.new" "$KIOSK_HOME/www.old"
-mkdir -p "$KIOSK_HOME/www.new"
-(cd dist && find . -type f ! -name '*.map' -exec cp --parents {} "$KIOSK_HOME/www.new/" \;)
-[ -d "$KIOSK_HOME/www" ] && mv "$KIOSK_HOME/www" "$KIOSK_HOME/www.old"
-mv "$KIOSK_HOME/www.new" "$KIOSK_HOME/www"
-rm -rf "$KIOSK_HOME/www.old"
-git rev-parse HEAD > "$KIOSK_HOME/www/.deployed-commit"
-log "Published to $KIOSK_HOME/www"
+NEW="$APP_DIR.new"
+OLD="$APP_DIR.old"
+rm -rf "$NEW" "$OLD"
+mkdir -p "$NEW/www"
+(cd dist && find . -type f ! -name '*.map' -exec cp --parents {} "$NEW/www/" \;)
+cp -a server "$NEW/server"
+rm -rf "$NEW/server/test"
+echo "$COMMIT" > "$NEW/.deployed-commit"
+[ -d "$APP_DIR" ] && mv "$APP_DIR" "$OLD"
+mv "$NEW" "$APP_DIR"
+rm -rf "$OLD"
+log "Published to $APP_DIR"
 
-if curl -fs -o /dev/null "$KIOSK_URL"; then
+# The server runs from the published copy, so restart it to pick up the new code.
+systemctl --user restart kiosk-web.service
+for _ in $(seq 1 30); do
+  curl -fs -o /dev/null "${KIOSK_URL}api/health" && break
+  sleep 1
+done
+if curl -fs "${KIOSK_URL}api/health" > /dev/null; then
   log "Server OK at $KIOSK_URL"
 else
-  log "WARNING: server not responding at $KIOSK_URL (systemctl --user status kiosk-web)"
+  log "WARNING: health check failing at ${KIOSK_URL}api/health (systemctl --user status kiosk-web; journalctl --user -u kiosk-web)"
+  curl -s "${KIOSK_URL}api/health" || true
+  echo
 fi
 
 # Restart the kiosk browser so it loads the new build (lwrespawn relaunches it).

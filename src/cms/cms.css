@@ -1,0 +1,16 @@
+/* Inter is bundled (latin subset) so the CMS also works on a LAN without internet. */
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-600.css';
+@import '@fontsource/inter/latin-700.css';
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #f4f4f5;
+  color: #18181b;
+}
+
+#root {
+  min-height: 100vh;
+}

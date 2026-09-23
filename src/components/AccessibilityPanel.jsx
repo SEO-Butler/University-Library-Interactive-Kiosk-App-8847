@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext';
 function AccessibilityPanel() {
   const navigate = useNavigate();
   const { state, actions } = useApp();
+  const { site } = state;
 
   const toggleSetting = (setting) => {
     actions.updateAccessibility({ [setting]: !state.accessibility[setting] });
@@ -154,11 +155,16 @@ function AccessibilityPanel() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="text-center p-4 bg-gray-50 rounded-xl">
               <h4 className="font-semibold text-primary-800 mb-2">Physical Assistance</h4>
-              <p className="text-gray-600">Visit our Information Desk on the ground floor for personalized help.</p>
+              <p className="text-gray-600">
+                Visit the {site.helpDeskName || 'information desk'}
+                {site.helpDeskLocation ? ` (${site.helpDeskLocation})` : ''} for personalised help.
+              </p>
             </div>
             <div className="text-center p-4 bg-gray-50 rounded-xl">
               <h4 className="font-semibold text-primary-800 mb-2">Technical Support</h4>
-              <p className="text-gray-600">Call extension 2150 for immediate technical assistance.</p>
+              <p className="text-gray-600">
+                {site.helpPhone ? `Call ${site.helpPhone} for immediate technical assistance.` : 'Ask any member of staff for technical assistance.'}
+              </p>
             </div>
           </div>
         </motion.div>
