@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'react-qr-code';
-import * as FiIcons from 'react-icons/fi';
+import { FiArrowLeft, FiExternalLink, FiX, FiSmartphone } from 'react-icons/fi';
+import { MdQrCode2 } from 'react-icons/md';
 import SafeIcon from '../common/SafeIcon';
+import RefreshButton from './common/RefreshButton';
+import ErrorBanner from './common/ErrorBanner';
 import { useApp } from '../context/AppContext';
+import { getSafeUrl } from '../lib/urls';
 import LoadingSpinner from './common/LoadingSpinner';
-
-const { FiArrowLeft, FiQrCode, FiExternalLink, FiX, FiSmartphone, FiRefreshCw } = FiIcons;
 
 function QRGenerator() {
   const navigate = useNavigate();
@@ -15,15 +17,29 @@ function QRGenerator() {
   const [selectedLink, setSelectedLink] = useState(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const fullscreenTimerRef = useRef(null);
+
+  // Only links with a valid https URL (on an allowed host) are shown as QR codes.
+  const links = state.content.qrLinks
+    .map((link) => ({ ...link, safeUrl: getSafeUrl(link.url) }))
+    .filter((link) => link.safeUrl);
+
+  useEffect(() => () => clearTimeout(fullscreenTimerRef.current), []);
 
   const handleLinkSelect = (link) => {
     setSelectedLink(link);
   };
 
+  const hideFullscreenQR = () => {
+    clearTimeout(fullscreenTimerRef.current);
+    setShowFullscreen(false);
+  };
+
   const showFullscreenQR = () => {
+    clearTimeout(fullscreenTimerRef.current);
     setShowFullscreen(true);
     // Auto-hide after 30 seconds
-    setTimeout(() => {
+    fullscreenTimerRef.current = setTimeout(() => {
       setShowFullscreen(false);
     }, 30000);
   };
@@ -48,7 +64,7 @@ function QRGenerator() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className={`min-h-screen p-8 ${state.accessibility.highContrast ? 'high-contrast' : ''} ${state.accessibility.largeText ? 'large-text' : ''}`}
+      className="min-h-screen p-8"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
@@ -61,13 +77,7 @@ function QRGenerator() {
           <span className="text-xl font-medium">Back to Home</span>
         </Link>
         <h1 className="text-4xl font-bold text-primary-800">Quick Links</h1>
-        <button
-          onClick={handleRefresh}
-          className={`flex items-center space-x-2 text-primary-600 hover:text-primary-700 p-2 rounded-full transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
-          disabled={isRefreshing}
-        >
-          <SafeIcon icon={FiRefreshCw} className="text-xl" />
-        </button>
+        <RefreshButton onClick={handleRefresh} isRefreshing={isRefreshing} />
       </div>
 
       <div className="max-w-6xl mx-auto">
@@ -86,32 +96,21 @@ function QRGenerator() {
           </p>
         </motion.div>
 
-        {state.error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 text-center mb-8">
-            <p>{state.error}</p>
-            <button
-              onClick={handleRefresh}
-              className="mt-2 text-red-600 hover:text-red-800 font-medium"
-            >
-              Try Again
-            </button>
-          </div>
-        )}
+        <ErrorBanner message={state.error} onRetry={handleRefresh} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Links Selection */}
           <div>
             <h3 className="text-2xl font-semibold text-primary-800 mb-6">Available Services</h3>
             <div className="space-y-4">
-              {state.content.qrLinks.map((link) => (
+              {links.map((link) => (
                 <motion.button
                   key={link.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleLinkSelect(link)}
-                  className={`w-full p-6 rounded-2xl text-left transition-all touch-button ${
+                  className={`w-full p-6 rounded-2xl text-left transition-colors touch-button ${
                     selectedLink?.id === link.id
                       ? 'bg-primary-500 text-white shadow-lg'
                       : 'bg-white hover:bg-gray-50 text-gray-800 shadow-md'
@@ -163,17 +162,19 @@ function QRGenerator() {
                   {/* QR Code */}
                   <div className="bg-white p-6 rounded-xl shadow-inner mb-6 inline-block">
                     <QRCode
-                      value={selectedLink.url}
+                      value={selectedLink.safeUrl.href}
                       size={200}
                       level="M"
-                      includeMargin={true}
                     />
                   </div>
 
                   {/* URL Display */}
                   <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                    <p className="text-lg font-semibold text-gray-800">
+                      {selectedLink.safeUrl.hostname}
+                    </p>
                     <p className="text-sm text-gray-600 break-all">
-                      {selectedLink.url}
+                      {selectedLink.safeUrl.href}
                     </p>
                   </div>
 
@@ -193,7 +194,7 @@ function QRGenerator() {
               </motion.div>
             ) : (
               <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-                <SafeIcon icon={FiQrCode} className="text-6xl text-gray-400 mx-auto mb-4" />
+                <SafeIcon icon={MdQrCode2} className="text-6xl text-gray-400 mx-auto mb-4" />
                 <h3 className="text-2xl font-semibold text-gray-600 mb-2">
                   Select a Service
                 </h3>
@@ -216,7 +217,8 @@ function QRGenerator() {
             className="fixed inset-0 bg-white z-50 flex items-center justify-center"
           >
             <button
-              onClick={() => setShowFullscreen(false)}
+              onClick={hideFullscreenQR}
+              aria-label="Close fullscreen QR code"
               className="absolute top-8 right-8 bg-gray-100 hover:bg-gray-200 p-4 rounded-full transition-colors touch-button"
             >
               <SafeIcon icon={FiX} className="text-3xl text-gray-600" />
@@ -230,13 +232,15 @@ function QRGenerator() {
               </p>
               <div className="bg-white p-8 rounded-2xl shadow-2xl inline-block">
                 <QRCode
-                  value={selectedLink.url}
+                  value={selectedLink.safeUrl.href}
                   size={400}
                   level="M"
-                  includeMargin={true}
                 />
               </div>
-              <p className="text-lg text-gray-500 mt-8">
+              <p className="text-2xl font-semibold text-gray-800 mt-8">
+                {selectedLink.safeUrl.hostname}
+              </p>
+              <p className="text-lg text-gray-500 mt-2">
                 Scan with your phone's camera to access this service
               </p>
             </div>

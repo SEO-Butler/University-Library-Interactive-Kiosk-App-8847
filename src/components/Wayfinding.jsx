@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import * as FiIcons from 'react-icons/fi';
+import { FiArrowLeft, FiMapPin, FiNavigation, FiLayers } from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
+import RefreshButton from './common/RefreshButton';
+import ErrorBanner from './common/ErrorBanner';
 import { useApp } from '../context/AppContext';
 import LoadingSpinner from './common/LoadingSpinner';
-
-const { FiArrowLeft, FiMapPin, FiNavigation, FiLayers, FiRefreshCw } = FiIcons;
 
 function Wayfinding() {
   const navigate = useNavigate();
   const { state, actions } = useApp();
-  const [selectedFloor, setSelectedFloor] = useState(1);
+  const [selectedFloorId, setSelectedFloorId] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -51,10 +51,17 @@ function Wayfinding() {
       }))
   }));
 
+  // Default to the first floor from the database rather than assuming an id.
+  const selectedFloor = selectedFloorId ?? floors[0]?.id;
   const currentFloor = floors.find(f => f.id === selectedFloor) || {
-    id: 1,
-    name: 'Ground Floor',
+    id: null,
+    name: 'No floor plans available',
     locations: []
+  };
+
+  const selectFloor = (floorId) => {
+    setSelectedFloorId(floorId);
+    setSelectedLocation(null);
   };
 
   const handleLocationClick = (location) => {
@@ -70,7 +77,7 @@ function Wayfinding() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className={`min-h-screen p-8 ${state.accessibility.highContrast ? 'high-contrast' : ''} ${state.accessibility.largeText ? 'large-text' : ''}`}
+      className="min-h-screen p-8"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
@@ -83,26 +90,10 @@ function Wayfinding() {
           <span className="text-xl font-medium">Back to Home</span>
         </Link>
         <h1 className="text-4xl font-bold text-primary-800">Library Map</h1>
-        <button
-          onClick={handleRefresh}
-          className={`flex items-center space-x-2 text-primary-600 hover:text-primary-700 p-2 rounded-full transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
-          disabled={isRefreshing}
-        >
-          <SafeIcon icon={FiRefreshCw} className="text-xl" />
-        </button>
+        <RefreshButton onClick={handleRefresh} isRefreshing={isRefreshing} />
       </div>
 
-      {state.error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 text-center mb-8">
-          <p>{state.error}</p>
-          <button
-            onClick={handleRefresh}
-            className="mt-2 text-red-600 hover:text-red-800 font-medium"
-          >
-            Try Again
-          </button>
-        </div>
-      )}
+      <ErrorBanner message={state.error} onRetry={handleRefresh} />
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Floor Selection */}
@@ -116,8 +107,8 @@ function Wayfinding() {
               {floors.map((floor) => (
                 <button
                   key={floor.id}
-                  onClick={() => setSelectedFloor(floor.id)}
-                  className={`w-full p-4 rounded-xl transition-all touch-button ${
+                  onClick={() => selectFloor(floor.id)}
+                  className={`w-full p-4 rounded-xl transition-colors touch-button ${
                     selectedFloor === floor.id
                       ? 'bg-primary-500 text-white'
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -181,12 +172,12 @@ function Wayfinding() {
                   key={location.id}
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  whileHover={{ scale: 1.2 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => handleLocationClick(location)}
                   className={`absolute transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full ${
                     (locationTypes[location.type]?.color ?? 'bg-gray-500')
-                  } text-white font-bold shadow-lg hover:shadow-xl transition-all touch-button`}
+                  } text-white font-bold shadow-lg flex items-center justify-center touch-button`}
+                  aria-label={location.name}
                   style={{ left: `${location.x}%`, top: `${location.y}%` }}
                   title={location.name}
                 >
@@ -241,7 +232,7 @@ function Wayfinding() {
             ) : (
               <div className="text-center py-12">
                 <SafeIcon icon={FiMapPin} className="text-4xl text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">Click on a location marker to see details and directions</p>
+                <p className="text-gray-500">Tap a location marker to see details and directions</p>
               </div>
             )}
           </div>

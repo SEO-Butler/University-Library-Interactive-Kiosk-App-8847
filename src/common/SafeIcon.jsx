@@ -1,15 +1,9 @@
 import React from 'react';
-import * as FiIcons from 'react-icons/fi';
 import { FiAlertTriangle } from 'react-icons/fi';
 
-const SafeIcon = ({ icon, name, ...props }) => {
-  let IconComponent;
-  try {
-    IconComponent = icon || (name && FiIcons[`Fi${name}`]);
-  } catch (e) {
-    IconComponent = null;
-  }
-
+// Icons are passed as components (named imports) so the bundler only includes the
+// icons that are actually used.
+const SafeIcon = ({ icon: IconComponent, ...props }) => {
   return IconComponent
     ? React.createElement(IconComponent, props)
     : <FiAlertTriangle {...props} />;

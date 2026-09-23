@@ -1,13 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* Inter is bundled with the app (latin subset, weights in use) so it works offline. */
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-600.css';
+@import '@fontsource/inter/latin-700.css';
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -18,14 +16,22 @@ body {
   min-height: 100vh;
 }
 
-/* Kiosk mode styles */
-.kiosk-mode {
+/* Kiosk behaviour: no text selection, callouts, pinch/double-tap zoom or overscroll
+   navigation. Form fields stay selectable so people can edit what they type. */
+html {
   -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
+}
+
+input,
+textarea,
+select {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Touch-friendly button styles */
@@ -35,29 +41,57 @@ body {
   touch-action: manipulation;
 }
 
-/* Accessibility styles */
-.high-contrast {
-  filter: contrast(150%) brightness(120%);
+/* Large text: scale the root size. Tailwind sizes are in rem, so all text and spacing
+   grow in proportion and headings stay larger than body text. */
+html.large-text {
+  font-size: 125%;
 }
 
-.large-text {
-  font-size: 1.25em !important;
+/* High contrast: explicit colours instead of a CSS filter. A full-page filter is slow on
+   the Pi's GPU, washes out light backgrounds and breaks position: fixed. */
+html.high-contrast .bg-gradient-to-br {
+  background: #fff !important;
 }
 
-.large-text h1 {
-  font-size: 2.5em !important;
+html.high-contrast [class*="text-gray-"],
+html.high-contrast [class*="text-secondary-"],
+html.high-contrast [class*="text-primary-"] {
+  color: #000 !important;
 }
 
-.large-text h2 {
-  font-size: 2em !important;
+html.high-contrast .bg-white,
+html.high-contrast [class*="bg-gray-50"],
+html.high-contrast [class*="bg-primary-50"] {
+  background-color: #fff !important;
+  border: 2px solid #000;
 }
 
-.large-text h3 {
-  font-size: 1.75em !important;
+html.high-contrast .bg-gray-100,
+html.high-contrast .bg-gray-200,
+html.high-contrast .bg-primary-100 {
+  background-color: #fff !important;
+  border: 2px solid #000;
 }
 
-.large-text p, .large-text span {
-  font-size: 1.25em !important;
+html.high-contrast .bg-primary-500,
+html.high-contrast .bg-primary-600 {
+  background-color: #0c4a6e !important;
+}
+
+html.high-contrast .bg-blue-500 { background-color: #1e3a8a !important; }
+html.high-contrast .bg-green-500 { background-color: #14532d !important; }
+html.high-contrast .bg-purple-500 { background-color: #4c1d95 !important; }
+html.high-contrast .bg-orange-500 { background-color: #7c2d12 !important; }
+html.high-contrast .bg-red-500 { background-color: #7f1d1d !important; }
+html.high-contrast .bg-yellow-500 { background-color: #713f12 !important; }
+
+html.high-contrast [class*="opacity-"] {
+  opacity: 1 !important;
+}
+
+html.high-contrast :focus-visible {
+  outline: 4px solid #000;
+  outline-offset: 2px;
 }
 
 /* Custom scrollbar */
@@ -73,10 +107,6 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 6px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
 }
 
 /* Loading animation */

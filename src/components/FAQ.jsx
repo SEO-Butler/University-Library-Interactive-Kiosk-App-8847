@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import * as FiIcons from 'react-icons/fi';
+import { FiArrowLeft, FiSearch, FiChevronDown, FiChevronUp, FiHelpCircle } from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
+import RefreshButton from './common/RefreshButton';
+import ErrorBanner from './common/ErrorBanner';
 import { useApp } from '../context/AppContext';
 import LoadingSpinner from './common/LoadingSpinner';
-
-const { FiArrowLeft, FiSearch, FiChevronDown, FiChevronUp, FiHelpCircle, FiRefreshCw } = FiIcons;
 
 function FAQ() {
   const navigate = useNavigate();
@@ -61,7 +61,7 @@ function FAQ() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className={`min-h-screen p-8 ${state.accessibility.highContrast ? 'high-contrast' : ''} ${state.accessibility.largeText ? 'large-text' : ''}`}
+      className="min-h-screen p-8"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
@@ -74,13 +74,7 @@ function FAQ() {
           <span className="text-xl font-medium">Back to Home</span>
         </Link>
         <h1 className="text-4xl font-bold text-primary-800">Help & FAQ</h1>
-        <button
-          onClick={handleRefresh}
-          className={`flex items-center space-x-2 text-primary-600 hover:text-primary-700 p-2 rounded-full transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
-          disabled={isRefreshing}
-        >
-          <SafeIcon icon={FiRefreshCw} className="text-xl" />
-        </button>
+        <RefreshButton onClick={handleRefresh} isRefreshing={isRefreshing} />
       </div>
 
       <div className="max-w-4xl mx-auto">
@@ -107,7 +101,7 @@ function FAQ() {
                   onClick={() => {
                     setSelectedCategory(category);
                   }}
-                  className={`px-6 py-3 rounded-xl transition-all touch-button ${
+                  className={`px-6 py-3 rounded-xl transition-colors touch-button ${
                     selectedCategory === category ? 'bg-primary-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                   }`}
                 >
@@ -120,17 +114,7 @@ function FAQ() {
 
         {/* FAQ Items */}
         <div className="space-y-4">
-          {state.error && (
-            <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 text-center">
-              <p>{state.error}</p>
-              <button
-                onClick={handleRefresh}
-                className="mt-2 text-red-600 hover:text-red-800 font-medium"
-              >
-                Try Again
-              </button>
-            </div>
-          )}
+          <ErrorBanner message={state.error} onRetry={handleRefresh} />
 
           {filteredFAQs.length > 0 ? (
             filteredFAQs.map((faq) => (
