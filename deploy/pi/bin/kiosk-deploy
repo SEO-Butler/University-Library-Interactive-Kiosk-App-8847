@@ -1,0 +1,46 @@
+#!/bin/bash
+# Build the app from the repo and publish it to ~/kiosk/www.
+# Usage: kiosk-deploy [--no-reload]
+set -euo pipefail
+. "$(dirname "$(readlink -f "$0")")/kiosk-common.sh"
+
+RELOAD=yes
+[ "${1:-}" = "--no-reload" ] && RELOAD=no
+
+if [ ! -x "$NODE_DIR/bin/node" ]; then
+  echo "Node is not installed in $NODE_DIR. Run deploy/pi/install.sh first." >&2
+  exit 1
+fi
+export PATH="$NODE_DIR/bin:$PATH"
+
+cd "$REPO_DIR"
+log "Building $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD) in $REPO_DIR"
+
+if [ -f package-lock.json ]; then
+  npm ci --no-audit --no-fund --loglevel=error
+else
+  npm install --no-audit --no-fund --loglevel=error
+fi
+npm run build
+
+# Publish atomically: the server keeps serving the old copy until the swap.
+# Source maps are left out; they are only useful for debugging.
+rm -rf "$KIOSK_HOME/www.new" "$KIOSK_HOME/www.old"
+mkdir -p "$KIOSK_HOME/www.new"
+(cd dist && find . -type f ! -name '*.map' -exec cp --parents {} "$KIOSK_HOME/www.new/" \;)
+[ -d "$KIOSK_HOME/www" ] && mv "$KIOSK_HOME/www" "$KIOSK_HOME/www.old"
+mv "$KIOSK_HOME/www.new" "$KIOSK_HOME/www"
+rm -rf "$KIOSK_HOME/www.old"
+git rev-parse HEAD > "$KIOSK_HOME/www/.deployed-commit"
+log "Published to $KIOSK_HOME/www"
+
+if curl -fs -o /dev/null "$KIOSK_URL"; then
+  log "Server OK at $KIOSK_URL"
+else
+  log "WARNING: server not responding at $KIOSK_URL (systemctl --user status kiosk-web)"
+fi
+
+# Restart the kiosk browser so it loads the new build (lwrespawn relaunches it).
+if [ "$RELOAD" = yes ] && pkill -f -- "--user-data-dir=$KIOSK_PROFILE"; then
+  log "Restarted kiosk browser"
+fi

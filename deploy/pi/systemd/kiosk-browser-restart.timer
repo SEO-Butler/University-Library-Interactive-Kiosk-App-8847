@@ -1,0 +1,8 @@
+[Unit]
+Description=Restart the kiosk browser nightly
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+
+[Install]
+WantedBy=timers.target

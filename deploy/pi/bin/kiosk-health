@@ -1,0 +1,10 @@
+#!/bin/bash
+# Restart the local server if it stops answering. Run by kiosk-health.timer.
+# (lwrespawn already relaunches Chromium if it exits.)
+set -u
+. "$(dirname "$(readlink -f "$0")")/kiosk-common.sh"
+
+if ! curl -fs --max-time 5 -o /dev/null "$KIOSK_URL"; then
+  log "Server not responding at $KIOSK_URL, restarting kiosk-web"
+  systemctl --user restart kiosk-web.service
+fi

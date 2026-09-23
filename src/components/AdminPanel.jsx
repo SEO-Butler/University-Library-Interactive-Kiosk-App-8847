@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
-import { useApp } from '../context/AppContext';
+import { useApp, clampIdleTimeout, MIN_IDLE_TIMEOUT, MAX_IDLE_TIMEOUT } from '../context/AppContext';
 import {
   addAnnouncement,
   updateAnnouncement,
@@ -32,10 +32,38 @@ function AdminPanel() {
   const [formData, setFormData] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
+  // Settings are edited as a draft and only written when the admin presses Save.
+  const [draftOverrides, setSettingsDraft] = useState(null);
+  const settingsDraft = {
+    idleTimeoutMinutes: state.settings.idleTimeout / 60000,
+    autoResetHome: state.settings.autoResetHome,
+    kioskMode: state.settings.kioskMode,
+    language: state.settings.language,
+    ...draftOverrides
+  };
 
-  useEffect(() => {
-    actions.updateActivity();
-  }, [actions]);
+  const updateSettingsDraft = (changes) => {
+    setSettingsDraft((prev) => ({ ...prev, ...changes }));
+  };
+
+  const handleSaveSettings = async () => {
+    setIsProcessing(true);
+    try {
+      await actions.saveSettings({
+        idleTimeout: clampIdleTimeout(Number(settingsDraft.idleTimeoutMinutes) * 60000),
+        autoResetHome: settingsDraft.autoResetHome,
+        kioskMode: settingsDraft.kioskMode,
+        language: settingsDraft.language
+      });
+      setSettingsDraft(null);
+      setStatusMessage({ type: 'success', text: 'Settings saved' });
+    } catch (error) {
+      setStatusMessage({ type: 'error', text: `Settings saved on this kiosk only: ${error.message}` });
+    } finally {
+      setIsProcessing(false);
+      setTimeout(() => setStatusMessage(null), 3000);
+    }
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -681,22 +709,23 @@ function AdminPanel() {
                     </label>
                     <input
                       type="number"
-                      value={state.settings.idleTimeout / 60000}
-                      onChange={(e) => actions.updateSettings({
-                        idleTimeout: parseInt(e.target.value) * 60000
-                      })}
+                      min={MIN_IDLE_TIMEOUT / 60000}
+                      max={MAX_IDLE_TIMEOUT / 60000}
+                      value={settingsDraft.idleTimeoutMinutes}
+                      onChange={(e) => updateSettingsDraft({ idleTimeoutMinutes: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Between {MIN_IDLE_TIMEOUT / 60000} and {MAX_IDLE_TIMEOUT / 60000} minutes.
+                    </p>
                   </div>
                   
                   <div className="flex items-center space-x-3">
                     <input
                       type="checkbox"
                       id="autoReset"
-                      checked={state.settings.autoResetHome}
-                      onChange={(e) => actions.updateSettings({
-                        autoResetHome: e.target.checked
-                      })}
+                      checked={settingsDraft.autoResetHome}
+                      onChange={(e) => updateSettingsDraft({ autoResetHome: e.target.checked })}
                       className="rounded"
                     />
                     <label htmlFor="autoReset" className="text-sm font-medium text-gray-700">
@@ -708,10 +737,8 @@ function AdminPanel() {
                     <input
                       type="checkbox"
                       id="kioskMode"
-                      checked={state.settings.kioskMode}
-                      onChange={(e) => actions.updateSettings({
-                        kioskMode: e.target.checked
-                      })}
+                      checked={settingsDraft.kioskMode}
+                      onChange={(e) => updateSettingsDraft({ kioskMode: e.target.checked })}
                       className="rounded"
                     />
                     <label htmlFor="kioskMode" className="text-sm font-medium text-gray-700">
@@ -721,11 +748,11 @@ function AdminPanel() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Language
+                      Default Language
                     </label>
                     <select
-                      value={state.currentLanguage}
-                      onChange={(e) => actions.setLanguage(e.target.value)}
+                      value={settingsDraft.language}
+                      onChange={(e) => updateSettingsDraft({ language: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     >
                       <option value="en">English</option>
@@ -734,12 +761,23 @@ function AdminPanel() {
                     </select>
                   </div>
 
-                  <button
-                    onClick={actions.resetToDefault}
-                    className="mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg"
-                  >
-                    Reset to Default Settings
-                  </button>
+                  <div className="flex space-x-3 mt-4">
+                    <button
+                      onClick={handleSaveSettings}
+                      disabled={isProcessing}
+                      className="flex items-center space-x-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+                    >
+                      <SafeIcon icon={FiSave} />
+                      <span>Save Settings</span>
+                    </button>
+                    <button
+                      onClick={() => setSettingsDraft(null)}
+                      disabled={isProcessing}
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg"
+                    >
+                      Discard Changes
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="bg-gray-50 rounded-lg p-4">

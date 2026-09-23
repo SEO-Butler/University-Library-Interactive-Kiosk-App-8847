@@ -1,0 +1,34 @@
+#!/bin/bash
+# Switch the screen on during opening hours and off outside them to avoid burn-in.
+# Run every few minutes by kiosk-display.timer. Does nothing unless kiosk mode is on.
+set -u
+. "$(dirname "$(readlink -f "$0")")/kiosk-common.sh"
+
+kiosk_mode_enabled || exit 0
+
+case "$(date +%u)" in
+  6) HOURS="$HOURS_SATURDAY" ;;
+  7) HOURS="$HOURS_SUNDAY" ;;
+  *) HOURS="$HOURS_WEEKDAY" ;;
+esac
+
+WANT=on
+if [ -n "$HOURS" ]; then
+  OPEN="${HOURS%-*}"
+  CLOSE="${HOURS#*-}"
+  NOW="$(date +%H:%M)"
+  if [[ "$NOW" < "$OPEN" || ! "$NOW" < "$CLOSE" ]]; then
+    WANT=off
+  fi
+fi
+
+STATE_FILE="$XDG_RUNTIME_DIR/kiosk-display-state"
+[ "$(cat "$STATE_FILE" 2>/dev/null)" = "$WANT" ] && exit 0
+
+if wlr-randr --output "$DISPLAY_OUTPUT" --"$WANT"; then
+  echo "$WANT" > "$STATE_FILE"
+  log "Display $DISPLAY_OUTPUT $WANT (hours today: ${HOURS:-always on})"
+else
+  log "Could not switch $DISPLAY_OUTPUT $WANT"
+  exit 1
+fi

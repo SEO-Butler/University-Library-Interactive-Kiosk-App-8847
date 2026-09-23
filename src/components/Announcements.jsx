@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useApp } from '../context/AppContext';
@@ -9,15 +9,16 @@ import LoadingSpinner from './common/LoadingSpinner';
 
 const { FiArrowLeft, FiBell, FiCalendar, FiInfo, FiStar, FiClock, FiRefreshCw } = FiIcons;
 
+function formatDate(value) {
+  const date = typeof value === 'string' ? parseISO(value) : new Date(value);
+  return isValid(date) ? format(date, 'MMMM d, yyyy') : '';
+}
+
 function Announcements() {
   const navigate = useNavigate();
   const { state, actions } = useApp();
   const [selectedType, setSelectedType] = useState('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  useEffect(() => {
-    actions.updateActivity();
-  }, [actions]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -27,7 +28,6 @@ function Announcements() {
 
   const handleBackToHome = (e) => {
     e.preventDefault();
-    actions.updateActivity();
     navigate('/');
   };
 
@@ -99,7 +99,6 @@ function Announcements() {
                 key={type.id}
                 onClick={() => {
                   setSelectedType(type.id);
-                  actions.updateActivity();
                 }}
                 className={`flex items-center space-x-3 px-6 py-3 rounded-xl transition-all touch-button ${
                   selectedType === type.id ? 'bg-primary-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -163,7 +162,7 @@ function Announcements() {
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
                           <SafeIcon icon={FiCalendar} />
-                          <span>{format(parseISO(announcement.date), 'MMMM d, yyyy')}</span>
+                          <span>{formatDate(announcement.date)}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <SafeIcon icon={FiClock} />

@@ -22,10 +22,6 @@ function HomeScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    actions.updateActivity();
-  }, [actions]);
-
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await actions.refreshData();
@@ -73,7 +69,6 @@ function HomeScreen() {
 
   const handleTileClick = (path) => {
     console.log("Navigating to", path);
-    actions.updateActivity();
     // Force a small delay before navigation to ensure context updates are processed
     setTimeout(() => {
       navigate(path);
@@ -209,7 +204,6 @@ function HomeScreen() {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => {
-            actions.updateActivity();
             navigate('/admin');
           }}
           className="bg-gray-700 hover:bg-gray-800 text-white rounded-full p-4 shadow-lg transition-colors touch-button"
@@ -222,7 +216,6 @@ function HomeScreen() {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => {
-            actions.updateActivity();
             navigate('/accessibility');
           }}
           className="bg-primary-600 hover:bg-primary-700 text-white rounded-full p-4 shadow-lg transition-colors touch-button"

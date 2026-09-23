@@ -1,0 +1,6 @@
+[Unit]
+Description=Restart the kiosk browser
+
+[Service]
+Type=oneshot
+ExecStart=%h/kiosk/bin/kiosk-restart-browser

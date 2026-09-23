@@ -1,0 +1,6 @@
+[Unit]
+Description=Switch the kiosk screen on or off for opening hours
+
+[Service]
+Type=oneshot
+ExecStart=%h/kiosk/bin/kiosk-display

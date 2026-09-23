@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
@@ -15,10 +15,6 @@ function Wayfinding() {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    actions.updateActivity();
-  }, [actions]);
-
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await actions.refreshData();
@@ -27,7 +23,6 @@ function Wayfinding() {
 
   const handleBackToHome = (e) => {
     e.preventDefault();
-    actions.updateActivity();
     navigate('/');
   };
 
@@ -64,7 +59,6 @@ function Wayfinding() {
 
   const handleLocationClick = (location) => {
     setSelectedLocation(location);
-    actions.updateActivity();
   };
 
   if (state.isLoading) {
@@ -191,7 +185,7 @@ function Wayfinding() {
                   whileTap={{ scale: 0.9 }}
                   onClick={() => handleLocationClick(location)}
                   className={`absolute transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full ${
-                    locationTypes[location.type].color
+                    (locationTypes[location.type]?.color ?? 'bg-gray-500')
                   } text-white font-bold shadow-lg hover:shadow-xl transition-all touch-button`}
                   style={{ left: `${location.x}%`, top: `${location.y}%` }}
                   title={location.name}
@@ -228,7 +222,7 @@ function Wayfinding() {
                 <div className="space-y-4">
                   <div>
                     <h4 className="font-semibold text-lg">{selectedLocation.name}</h4>
-                    <p className="text-gray-600 capitalize">{selectedLocation.type.replace('-', ' ')}</p>
+                    <p className="text-gray-600 capitalize">{(selectedLocation.type ?? '').replace('-', ' ')}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h5 className="font-medium mb-2">Directions:</h5>

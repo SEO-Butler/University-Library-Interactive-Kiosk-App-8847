@@ -1,0 +1,63 @@
+#!/bin/bash
+# Switch the desktop login between the normal Raspberry Pi desktop and the kiosk.
+# Usage: kiosk-mode on|off|status
+# Takes effect at the next login or reboot.
+set -euo pipefail
+. "$(dirname "$(readlink -f "$0")")/kiosk-common.sh"
+
+AUTOSTART="$HOME/.config/labwc/autostart"
+BACKUP="$AUTOSTART.pre-kiosk"
+MARKER="# Managed by kiosk-mode"
+BIN_DIR="$KIOSK_HOME/bin"
+
+write_autostart() {
+  mkdir -p "$(dirname "$AUTOSTART")"
+  # A user autostart replaces /etc/xdg/labwc/autostart, so the desktop, panel and
+  # screen blanking are not started. kanshi still applies the display layout.
+  {
+    echo "$MARKER. Run '$BIN_DIR/kiosk-mode off' to restore the desktop."
+    echo "/usr/bin/kanshi &"
+    if [ "$ONSCREEN_KEYBOARD" = yes ] && [ -x /usr/bin/squeekboard ]; then
+      echo "/usr/bin/squeekboard &"
+    fi
+    echo "/usr/bin/lwrespawn $BIN_DIR/kiosk-browser &"
+  } > "$AUTOSTART"
+}
+
+case "${1:-status}" in
+  on)
+    if [ -f "$AUTOSTART" ] && ! grep -q "$MARKER" "$AUTOSTART" && [ ! -f "$BACKUP" ]; then
+      cp "$AUTOSTART" "$BACKUP"
+      log "Backed up existing autostart to $BACKUP"
+    fi
+    write_autostart
+    touch "$KIOSK_MODE_FLAG"
+    log "Kiosk mode ON. It starts at the next login or reboot."
+    log "To get the desktop back: Ctrl+Alt+F2 (or SSH), log in, run: $BIN_DIR/kiosk-mode off && sudo reboot"
+    ;;
+  off)
+    if [ -f "$BACKUP" ]; then
+      mv "$BACKUP" "$AUTOSTART"
+      log "Restored previous autostart"
+    elif [ -f "$AUTOSTART" ] && grep -q "$MARKER" "$AUTOSTART"; then
+      rm "$AUTOSTART"
+    fi
+    rm -f "$KIOSK_MODE_FLAG"
+    # Make sure the screen isn't left switched off by the opening-hours schedule.
+    wlr-randr --output "$DISPLAY_OUTPUT" --on 2>/dev/null || true
+    rm -f "$XDG_RUNTIME_DIR/kiosk-display-state"
+    log "Kiosk mode OFF. The normal desktop starts at the next login or reboot."
+    ;;
+  status)
+    if kiosk_mode_enabled; then echo "Kiosk mode: ON"; else echo "Kiosk mode: OFF"; fi
+    if curl -fs -o /dev/null "$KIOSK_URL"; then echo "Server: OK ($KIOSK_URL)"; else echo "Server: DOWN ($KIOSK_URL)"; fi
+    if [ -f "$KIOSK_HOME/www/.deployed-commit" ]; then
+      echo "Deployed commit: $(cut -c1-7 "$KIOSK_HOME/www/.deployed-commit")"
+    fi
+    if pgrep -f -- "--user-data-dir=$KIOSK_PROFILE" > /dev/null; then echo "Kiosk browser: running"; else echo "Kiosk browser: not running"; fi
+    ;;
+  *)
+    echo "Usage: $0 on|off|status" >&2
+    exit 1
+    ;;
+esac

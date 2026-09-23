@@ -1,0 +1,10 @@
+#!/bin/bash
+# Restart the kiosk browser to release memory built up over a long uptime.
+# Run nightly by kiosk-browser-restart.timer; lwrespawn relaunches it.
+set -u
+. "$(dirname "$(readlink -f "$0")")/kiosk-common.sh"
+
+kiosk_mode_enabled || exit 0
+if pkill -f -- "--user-data-dir=$KIOSK_PROFILE"; then
+  log "Restarted kiosk browser"
+fi

@@ -1,0 +1,6 @@
+[Unit]
+Description=Library kiosk health check
+
+[Service]
+Type=oneshot
+ExecStart=%h/kiosk/bin/kiosk-health
