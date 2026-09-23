@@ -11,10 +11,6 @@ function AccessibilityPanel() {
   const navigate = useNavigate();
   const { state, actions } = useApp();
 
-  React.useEffect(() => {
-    actions.updateActivity();
-  }, [actions]);
-
   const toggleSetting = (setting) => {
     actions.updateAccessibility({ [setting]: !state.accessibility[setting] });
   };
@@ -65,7 +61,6 @@ function AccessibilityPanel() {
           className="flex items-center space-x-3 text-primary-600 hover:text-primary-700 transition-colors touch-button"
           onClick={(e) => {
             e.preventDefault();
-            actions.updateActivity();
             navigate('/');
           }}
         >

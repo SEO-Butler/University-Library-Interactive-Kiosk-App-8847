@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
@@ -7,98 +7,98 @@ import { useApp } from '../context/AppContext';
 
 const { FiClock, FiHome } = FiIcons;
 
+const WARNING_SECONDS = 30;
+const ACTIVITY_EVENTS = ['pointerdown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'wheel'];
+
 function IdleTimer() {
   const navigate = useNavigate();
   const location = useLocation();
   const { state, actions } = useApp();
   const [showWarning, setShowWarning] = React.useState(false);
-  const [countdown, setCountdown] = React.useState(30);
-  const timeoutRef = useRef(null);
-  const warningTimeoutRef = useRef(null);
-  const countdownRef = useRef(null);
+  const [countdown, setCountdown] = React.useState(WARNING_SECONDS);
 
-  const resetTimer = () => {
-    actions.updateActivity();
+  // Activity is tracked in refs so pointer and scroll events never re-render the app.
+  const lastActivityRef = useRef(Date.now());
+  const showWarningRef = useRef(false);
+  const idleTimeoutRef = useRef(state.settings.idleTimeout);
+  const pathnameRef = useRef(location.pathname);
+  const sessionResetRef = useRef(false);
+  idleTimeoutRef.current = state.settings.idleTimeout;
+  pathnameRef.current = location.pathname;
+
+  const hideWarning = useCallback(() => {
+    showWarningRef.current = false;
     setShowWarning(false);
-    setCountdown(30);
-    
-    // Clear existing timers
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
-    if (countdownRef.current) clearInterval(countdownRef.current);
+    setCountdown(WARNING_SECONDS);
+  }, []);
 
-    // Don't set timer on home page
-    if (location.pathname === '/') return;
+  const resetTimer = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    sessionResetRef.current = false;
+    hideWarning();
+  }, [hideWarning]);
 
-    // Set warning timer (show warning 30 seconds before timeout)
-    warningTimeoutRef.current = setTimeout(() => {
-      setShowWarning(true);
-      setCountdown(30);
-      
-      // Start countdown
-      countdownRef.current = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            handleTimeout();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }, state.settings.idleTimeout - 30000);
-
-    // Set main timeout
-    timeoutRef.current = setTimeout(handleTimeout, state.settings.idleTimeout);
-  };
-
-  const handleTimeout = () => {
-    setShowWarning(false);
-    setCountdown(30);
-    
-    // Clear all timers
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    
-    // Navigate to home
+  const handleTimeout = useCallback(() => {
+    hideWarning();
+    lastActivityRef.current = Date.now();
+    sessionResetRef.current = true;
+    actions.resetSession();
     navigate('/');
-    actions.resetToDefault();
-  };
+  }, [actions, hideWarning, navigate]);
 
   const handleContinue = () => {
     resetTimer();
   };
 
-  // Set up event listeners for user activity
+  // Record activity. While the warning is up the visitor has to answer it explicitly.
   useEffect(() => {
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    
-    const resetOnActivity = () => {
-      if (showWarning) return; // Don't reset if warning is showing
-      resetTimer();
+    const onActivity = () => {
+      if (!showWarningRef.current) {
+        lastActivityRef.current = Date.now();
+        sessionResetRef.current = false;
+      }
     };
-
-    events.forEach(event => {
-      document.addEventListener(event, resetOnActivity, true);
+    ACTIVITY_EVENTS.forEach((event) => {
+      document.addEventListener(event, onActivity, { capture: true, passive: true });
     });
-
-    // Initial timer setup
-    resetTimer();
-
     return () => {
-      events.forEach(event => {
-        document.removeEventListener(event, resetOnActivity, true);
+      ACTIVITY_EVENTS.forEach((event) => {
+        document.removeEventListener(event, onActivity, { capture: true });
       });
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
     };
-  }, [location.pathname, showWarning]);
+  }, []);
 
-  // Reset timer when location changes
+  // A single 1s tick. It only sets state when the warning is showing.
+  useEffect(() => {
+    const tick = setInterval(() => {
+      const idleFor = Date.now() - lastActivityRef.current;
+      const timeout = idleTimeoutRef.current;
+
+      if (pathnameRef.current === '/') {
+        // No warning on the home screen, but still clear the previous visitor's
+        // accessibility and language choices once they have walked away.
+        if (idleFor >= timeout && !sessionResetRef.current) {
+          sessionResetRef.current = true;
+          actions.resetSession();
+        }
+        return;
+      }
+
+      if (idleFor >= timeout) {
+        handleTimeout();
+      } else if (idleFor >= timeout - WARNING_SECONDS * 1000) {
+        showWarningRef.current = true;
+        setShowWarning(true);
+        setCountdown(Math.max(0, Math.ceil((timeout - idleFor) / 1000)));
+      }
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [actions, handleTimeout]);
+
+  // Navigating counts as activity.
   useEffect(() => {
     resetTimer();
-  }, [location.pathname]);
+  }, [location.pathname, resetTimer]);
 
   return (
     <AnimatePresence>
@@ -147,9 +147,10 @@ function IdleTimer() {
               <div className="bg-gray-200 rounded-full h-2">
                 <motion.div
                   className="bg-orange-500 h-2 rounded-full"
-                  initial={{ width: '100%' }}
-                  animate={{ width: '0%' }}
-                  transition={{ duration: 30, ease: 'linear' }}
+                  style={{ transformOrigin: 'left' }}
+                  initial={{ scaleX: 1 }}
+                  animate={{ scaleX: 0 }}
+                  transition={{ duration: WARNING_SECONDS, ease: 'linear' }}
                 />
               </div>
             </div>

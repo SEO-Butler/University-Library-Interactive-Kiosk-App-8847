@@ -10,6 +10,7 @@ import AdminPanel from './components/AdminPanel';
 import AccessibilityPanel from './components/AccessibilityPanel';
 import { AppProvider } from './context/AppContext';
 import IdleTimer from './components/IdleTimer';
+import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
 // Wrapper component to handle route animations properly
@@ -53,14 +54,16 @@ function App() {
   }, [isKioskMode]);
 
   return (
-    <AppProvider>
-      <Router>
-        <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50">
-          <IdleTimer />
-          <AnimatedRoutes />
-        </div>
-      </Router>
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <Router>
+          <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50">
+            <IdleTimer />
+            <AnimatedRoutes />
+          </div>
+        </Router>
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'react-qr-code';
@@ -16,18 +16,12 @@ function QRGenerator() {
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    actions.updateActivity();
-  }, [actions]);
-
   const handleLinkSelect = (link) => {
     setSelectedLink(link);
-    actions.updateActivity();
   };
 
   const showFullscreenQR = () => {
     setShowFullscreen(true);
-    actions.updateActivity();
     // Auto-hide after 30 seconds
     setTimeout(() => {
       setShowFullscreen(false);
@@ -42,7 +36,6 @@ function QRGenerator() {
 
   const handleBackToHome = (e) => {
     e.preventDefault();
-    actions.updateActivity();
     navigate('/');
   };
 

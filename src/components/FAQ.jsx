@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
@@ -16,17 +16,13 @@ function FAQ() {
   const [expandedItems, setExpandedItems] = useState(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    actions.updateActivity();
-  }, [actions]);
-
   // Get unique categories from the data
   const categories = ['All', ...new Set(state.content.faqs.map(faq => faq.category))];
 
   const filteredFAQs = state.content.faqs.filter(faq => {
     const matchesSearch = 
-      faq.question.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      faq.answer.toLowerCase().includes(searchTerm.toLowerCase());
+      (faq.question ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (faq.answer ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || faq.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -39,12 +35,10 @@ function FAQ() {
       newExpanded.add(id);
     }
     setExpandedItems(newExpanded);
-    actions.updateActivity();
   };
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
-    actions.updateActivity();
   };
 
   const handleRefresh = async () => {
@@ -55,7 +49,6 @@ function FAQ() {
 
   const handleBackToHome = (e) => {
     e.preventDefault();
-    actions.updateActivity();
     navigate('/');
   };
 
@@ -113,7 +106,6 @@ function FAQ() {
                   key={category}
                   onClick={() => {
                     setSelectedCategory(category);
-                    actions.updateActivity();
                   }}
                   className={`px-6 py-3 rounded-xl transition-all touch-button ${
                     selectedCategory === category ? 'bg-primary-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
