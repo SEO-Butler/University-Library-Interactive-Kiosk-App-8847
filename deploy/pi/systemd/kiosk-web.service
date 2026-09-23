@@ -1,0 +1,12 @@
+[Unit]
+Description=Library kiosk static web server (127.0.0.1 only)
+
+[Service]
+Environment=PORT=8080
+EnvironmentFile=-%h/kiosk/kiosk.conf
+ExecStart=/usr/bin/python3 -m http.server ${PORT} --bind 127.0.0.1 --directory %h/kiosk/www
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target
