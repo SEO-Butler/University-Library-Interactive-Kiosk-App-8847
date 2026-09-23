@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import * as FiIcons from 'react-icons/fi';
+import { FiArrowLeft, FiLock, FiSettings, FiUsers, FiEdit, FiTrash2, FiPlus, FiSave, FiX, FiCheck } from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
+import ErrorBanner from './common/ErrorBanner';
 import { useApp, clampIdleTimeout, MIN_IDLE_TIMEOUT, MAX_IDLE_TIMEOUT } from '../context/AppContext';
 import {
   addAnnouncement,
@@ -16,11 +17,27 @@ import {
   deleteQRLink
 } from '../services/kioskService';
 import LoadingSpinner from './common/LoadingSpinner';
+import { getSafeUrl, describeAllowedHosts } from '../lib/urls';
 
-const { 
-  FiArrowLeft, FiLock, FiSettings, FiUsers, FiEdit, 
-  FiTrash2, FiPlus, FiSave, FiX, FiRefreshCw, FiCheck 
-} = FiIcons;
+const REQUIRED_FIELDS = {
+  announcements: { title: 'Title', content: 'Content', date: 'Date' },
+  faqs: { category: 'Category', question: 'Question', answer: 'Answer' },
+  qrlinks: { name: 'Name', url: 'URL', description: 'Description' }
+};
+
+// Returns an error message, or null if the form can be saved.
+function validateForm(tab, data) {
+  const required = REQUIRED_FIELDS[tab] ?? {};
+  const missing = Object.entries(required)
+    .filter(([field]) => !String(data[field] ?? '').trim())
+    .map(([, label]) => label);
+  if (missing.length) return `Please fill in: ${missing.join(', ')}`;
+
+  if (tab === 'qrlinks' && !getSafeUrl(data.url)) {
+    return `The URL must be a valid https:// link on ${describeAllowedHosts()}.`;
+  }
+  return null;
+}
 
 function AdminPanel() {
   const navigate = useNavigate();
@@ -32,6 +49,8 @@ function AdminPanel() {
   const [formData, setFormData] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
+  const [loginError, setLoginError] = useState(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
   // Settings are edited as a draft and only written when the admin presses Save.
   const [draftOverrides, setSettingsDraft] = useState(null);
   const settingsDraft = {
@@ -71,8 +90,11 @@ function AdminPanel() {
     if (password === 'admin123') {
       setIsAuthenticated(true);
       setPassword('');
+      setLoginError(null);
     } else {
-      alert('Invalid password');
+      // No alert(): a native dialog would block the kiosk until someone dismisses it.
+      setLoginError('Incorrect password');
+      setPassword('');
     }
   };
 
@@ -120,6 +142,15 @@ function AdminPanel() {
     setEditingItem('new');
   };
 
+  // Switching tabs drops any half-finished edit, so a Save can't write the previous
+  // tab's form into another table.
+  const switchTab = (tabId) => {
+    setActiveTab(tabId);
+    setEditingItem(null);
+    setFormData({});
+    setPendingDeleteId(null);
+  };
+
   const handleEdit = (item) => {
     setFormData({ ...item });
     setEditingItem(item.id);
@@ -131,6 +162,12 @@ function AdminPanel() {
   };
 
   const handleSave = async () => {
+    const validationError = validateForm(activeTab, formData);
+    if (validationError) {
+      setStatusMessage({ type: 'error', text: validationError });
+      return;
+    }
+
     setIsProcessing(true);
     setStatusMessage(null);
     
@@ -167,11 +204,14 @@ function AdminPanel() {
     }
   };
 
+  // Two taps to delete instead of window.confirm(), which opens a blocking native dialog.
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+    if (pendingDeleteId !== id) {
+      setPendingDeleteId(id);
       return;
     }
-    
+    setPendingDeleteId(null);
+
     setIsProcessing(true);
     setStatusMessage(null);
     
@@ -217,6 +257,9 @@ function AdminPanel() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
             />
+            {loginError && (
+              <p role="alert" className="text-red-600 text-center font-medium">{loginError}</p>
+            )}
             
             <button
               type="submit"
@@ -260,7 +303,7 @@ function AdminPanel() {
         <h1 className="text-4xl font-bold text-primary-800">Admin Panel</h1>
         <button
           onClick={() => setIsAuthenticated(false)}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors"
+          className="bg-red-500 hover:bg-red-600 text-white px-6 rounded-lg transition-colors touch-button"
         >
           Logout
         </button>
@@ -295,8 +338,8 @@ function AdminPanel() {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-3 px-6 py-3 rounded-xl transition-all touch-button ${
+                onClick={() => switchTab(tab.id)}
+                className={`flex items-center space-x-3 px-6 py-3 rounded-xl transition-colors touch-button ${
                   activeTab === tab.id
                     ? 'bg-primary-500 text-white'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -309,17 +352,7 @@ function AdminPanel() {
           </div>
         </div>
 
-        {state.error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 text-center mb-8">
-            <p>{state.error}</p>
-            <button 
-              onClick={actions.refreshData}
-              className="mt-2 text-red-600 hover:text-red-800 font-medium"
-            >
-              Try Again
-            </button>
-          </div>
-        )}
+        <ErrorBanner message={state.error} onRetry={actions.refreshData} />
 
         {/* Content Area */}
         <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -456,17 +489,20 @@ function AdminPanel() {
                         </div>
                       </div>
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleEdit(announcement)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                          aria-label="Edit"
+                          className="flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded touch-button"
                         >
                           <SafeIcon icon={FiEdit} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(announcement.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded"
+                          aria-label={pendingDeleteId === announcement.id ? 'Confirm delete' : 'Delete'}
+                          className={`flex items-center justify-center rounded touch-button ${pendingDeleteId === announcement.id ? 'bg-red-600 text-white px-4' : 'text-red-600 hover:bg-red-50'}`}
                         >
                           <SafeIcon icon={FiTrash2} />
+                          {pendingDeleteId === announcement.id && <span className="ml-2 font-medium">Tap again to delete</span>}
                         </button>
                       </div>
                     </div>
@@ -570,17 +606,20 @@ function AdminPanel() {
                         <p className="text-gray-600 text-sm">{faq.answer}</p>
                       </div>
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleEdit(faq)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                          aria-label="Edit"
+                          className="flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded touch-button"
                         >
                           <SafeIcon icon={FiEdit} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(faq.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded"
+                          aria-label={pendingDeleteId === faq.id ? 'Confirm delete' : 'Delete'}
+                          className={`flex items-center justify-center rounded touch-button ${pendingDeleteId === faq.id ? 'bg-red-600 text-white px-4' : 'text-red-600 hover:bg-red-50'}`}
                         >
                           <SafeIcon icon={FiTrash2} />
+                          {pendingDeleteId === faq.id && <span className="ml-2 font-medium">Tap again to delete</span>}
                         </button>
                       </div>
                     </div>
@@ -636,6 +675,9 @@ function AdminPanel() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                         required
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Must start with https:// and be on {describeAllowedHosts()}.
+                      </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
@@ -677,17 +719,20 @@ function AdminPanel() {
                         <p className="text-blue-600 text-xs break-all">{link.url}</p>
                       </div>
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleEdit(link)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                          aria-label="Edit"
+                          className="flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded touch-button"
                         >
                           <SafeIcon icon={FiEdit} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(link.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded"
+                          aria-label={pendingDeleteId === link.id ? 'Confirm delete' : 'Delete'}
+                          className={`flex items-center justify-center rounded touch-button ${pendingDeleteId === link.id ? 'bg-red-600 text-white px-4' : 'text-red-600 hover:bg-red-50'}`}
                         >
                           <SafeIcon icon={FiTrash2} />
+                          {pendingDeleteId === link.id && <span className="ml-2 font-medium">Tap again to delete</span>}
                         </button>
                       </div>
                     </div>

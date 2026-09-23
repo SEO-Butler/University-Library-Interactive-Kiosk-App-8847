@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, parseISO, isValid } from 'date-fns';
-import * as FiIcons from 'react-icons/fi';
+import { FiArrowLeft, FiBell, FiCalendar, FiInfo, FiStar, FiClock } from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
+import RefreshButton from './common/RefreshButton';
+import ErrorBanner from './common/ErrorBanner';
 import { useApp } from '../context/AppContext';
 import LoadingSpinner from './common/LoadingSpinner';
-
-const { FiArrowLeft, FiBell, FiCalendar, FiInfo, FiStar, FiClock, FiRefreshCw } = FiIcons;
 
 function formatDate(value) {
   const date = typeof value === 'string' ? parseISO(value) : new Date(value);
@@ -64,7 +64,7 @@ function Announcements() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className={`min-h-screen p-8 ${state.accessibility.highContrast ? 'high-contrast' : ''} ${state.accessibility.largeText ? 'large-text' : ''}`}
+      className="min-h-screen p-8"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
@@ -77,13 +77,7 @@ function Announcements() {
           <span className="text-xl font-medium">Back to Home</span>
         </Link>
         <h1 className="text-4xl font-bold text-primary-800">News & Events</h1>
-        <button
-          onClick={handleRefresh}
-          className={`flex items-center space-x-2 text-primary-600 hover:text-primary-700 p-2 rounded-full transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
-          disabled={isRefreshing}
-        >
-          <SafeIcon icon={FiRefreshCw} className="text-xl" />
-        </button>
+        <RefreshButton onClick={handleRefresh} isRefreshing={isRefreshing} />
       </div>
 
       <div className="max-w-4xl mx-auto">
@@ -100,7 +94,7 @@ function Announcements() {
                 onClick={() => {
                   setSelectedType(type.id);
                 }}
-                className={`flex items-center space-x-3 px-6 py-3 rounded-xl transition-all touch-button ${
+                className={`flex items-center space-x-3 px-6 py-3 rounded-xl transition-colors touch-button ${
                   selectedType === type.id ? 'bg-primary-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                 }`}
               >
@@ -113,17 +107,7 @@ function Announcements() {
 
         {/* Announcements List */}
         <div className="space-y-6">
-          {state.error && (
-            <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 text-center">
-              <p>{state.error}</p>
-              <button
-                onClick={handleRefresh}
-                className="mt-2 text-red-600 hover:text-red-800 font-medium"
-              >
-                Try Again
-              </button>
-            </div>
-          )}
+          <ErrorBanner message={state.error} onRetry={handleRefresh} />
 
           {filteredAnnouncements.length > 0 ? (
             filteredAnnouncements.map((announcement, index) => (

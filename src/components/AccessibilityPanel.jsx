@@ -1,11 +1,9 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import * as FiIcons from 'react-icons/fi';
+import { FiArrowLeft, FiSettings, FiEye, FiType, FiVolume2, FiRefreshCw } from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useApp } from '../context/AppContext';
-
-const { FiArrowLeft, FiSettings, FiEye, FiType, FiVolume2, FiRefreshCw } = FiIcons;
 
 function AccessibilityPanel() {
   const navigate = useNavigate();
@@ -41,7 +39,7 @@ function AccessibilityPanel() {
     {
       id: 'audioEnabled',
       title: 'Audio Feedback',
-      description: 'Enables sound effects and voice prompts',
+      description: 'Plays a click sound when you tap a button',
       icon: FiVolume2,
       enabled: state.accessibility.audioEnabled
     }
@@ -52,7 +50,7 @@ function AccessibilityPanel() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className={`min-h-screen p-8 ${state.accessibility.highContrast ? 'high-contrast' : ''} ${state.accessibility.largeText ? 'large-text' : ''}`}
+      className="min-h-screen p-8"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
@@ -90,12 +88,15 @@ function AccessibilityPanel() {
         {/* Accessibility Options */}
         <div className="space-y-6">
           {accessibilityOptions.map((option, index) => (
-            <motion.div
+            <motion.button
               key={option.id}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-white rounded-2xl shadow-lg p-6"
+              onClick={() => toggleSetting(option.id)}
+              role="switch"
+              aria-checked={option.enabled}
+              className="w-full bg-white rounded-2xl shadow-lg p-6 text-left touch-button"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
@@ -112,15 +113,15 @@ function AccessibilityPanel() {
                   </div>
                 </div>
 
-                {/* Toggle Switch */}
-                <button
-                  onClick={() => toggleSetting(option.id)}
-                  className={`relative w-16 h-8 rounded-full transition-colors touch-button ${option.enabled ? 'bg-primary-500' : 'bg-gray-300'}`}
+                {/* Switch */}
+                <span
+                  aria-hidden="true"
+                  className={`relative flex-shrink-0 w-16 h-8 rounded-full transition-colors ${option.enabled ? 'bg-primary-500' : 'bg-gray-300'}`}
                 >
-                  <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${option.enabled ? 'translate-x-9' : 'translate-x-1'}`} />
-                </button>
+                  <span className={`absolute top-1 left-0 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${option.enabled ? 'translate-x-9' : 'translate-x-1'}`} />
+                </span>
               </div>
-            </motion.div>
+            </motion.button>
           ))}
         </div>
 

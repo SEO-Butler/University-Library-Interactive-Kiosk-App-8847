@@ -12,6 +12,7 @@ export default defineConfig({
   },
    build: {
     outDir: 'dist',
-    sourcemap: true
+    // No source maps in the published build: they expose the full source.
+    sourcemap: false
   },
 });

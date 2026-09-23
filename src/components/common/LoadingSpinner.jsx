@@ -1,9 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import * as FiIcons from 'react-icons/fi';
+import { FiLoader } from 'react-icons/fi';
 import SafeIcon from '../../common/SafeIcon';
-
-const { FiLoader } = FiIcons;
 
 function LoadingSpinner({ message = 'Loading...' }) {
   return (

@@ -1,11 +1,9 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import * as FiIcons from 'react-icons/fi';
+import { FiClock, FiHome } from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useApp } from '../context/AppContext';
-
-const { FiClock, FiHome } = FiIcons;
 
 const WARNING_SECONDS = 30;
 const ACTIVITY_EVENTS = ['pointerdown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'wheel'];
@@ -21,9 +19,11 @@ function IdleTimer() {
   const lastActivityRef = useRef(Date.now());
   const showWarningRef = useRef(false);
   const idleTimeoutRef = useRef(state.settings.idleTimeout);
+  const autoResetHomeRef = useRef(state.settings.autoResetHome);
   const pathnameRef = useRef(location.pathname);
   const sessionResetRef = useRef(false);
   idleTimeoutRef.current = state.settings.idleTimeout;
+  autoResetHomeRef.current = state.settings.autoResetHome;
   pathnameRef.current = location.pathname;
 
   const hideWarning = useCallback(() => {
@@ -74,9 +74,11 @@ function IdleTimer() {
       const idleFor = Date.now() - lastActivityRef.current;
       const timeout = idleTimeoutRef.current;
 
-      if (pathnameRef.current === '/') {
-        // No warning on the home screen, but still clear the previous visitor's
-        // accessibility and language choices once they have walked away.
+      if (pathnameRef.current === '/' || !autoResetHomeRef.current) {
+        // No warning or navigation on the home screen (or when the admin has turned off
+        // auto-reset), but still clear the previous visitor's accessibility and language
+        // choices once they have walked away.
+        if (showWarningRef.current) hideWarning();
         if (idleFor >= timeout && !sessionResetRef.current) {
           sessionResetRef.current = true;
           actions.resetSession();
@@ -93,7 +95,7 @@ function IdleTimer() {
       }
     }, 1000);
     return () => clearInterval(tick);
-  }, [actions, handleTimeout]);
+  }, [actions, handleTimeout, hideWarning]);
 
   // Navigating counts as activity.
   useEffect(() => {

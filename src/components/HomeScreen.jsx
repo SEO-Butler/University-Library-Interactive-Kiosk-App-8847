@@ -2,25 +2,49 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import * as FiIcons from 'react-icons/fi';
+import { FiMap, FiHelpCircle, FiBell, FiSettings, FiClock, FiCalendar } from 'react-icons/fi';
+import { MdQrCode2, MdAccessibilityNew } from 'react-icons/md';
 import SafeIcon from '../common/SafeIcon';
+import RefreshButton from './common/RefreshButton';
+import ErrorBanner from './common/ErrorBanner';
 import { useApp } from '../context/AppContext';
 import LoadingSpinner from './common/LoadingSpinner';
 
-const { FiMap, FiHelpCircle, FiQrCode, FiBell, FiSettings, FiClock, FiCalendar, FiRefreshCw } = FiIcons;
+// The clock re-renders on its own, so the rest of the home screen doesn't redraw every
+// tick. It updates once a minute, aligned to the minute boundary.
+function Clock() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    let interval;
+    const timeout = setTimeout(() => {
+      setNow(new Date());
+      interval = setInterval(() => setNow(new Date()), 60000);
+    }, 60000 - (Date.now() % 60000));
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, []);
+
+  return (
+    <div className="flex justify-center items-center space-x-8 text-lg text-secondary-500">
+      <div className="flex items-center space-x-2">
+        <SafeIcon icon={FiCalendar} className="text-primary-500" />
+        <span>{format(now, 'EEEE, MMMM do, yyyy')}</span>
+      </div>
+      <div className="flex items-center space-x-2">
+        <SafeIcon icon={FiClock} className="text-primary-500" />
+        <span>{format(now, 'h:mm a')}</span>
+      </div>
+    </div>
+  );
+}
 
 function HomeScreen() {
   const navigate = useNavigate();
   const { state, actions } = useApp();
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -51,7 +75,7 @@ function HomeScreen() {
       id: 'qr',
       title: 'Quick Links',
       subtitle: 'QR codes for mobile',
-      icon: FiQrCode,
+      icon: MdQrCode2,
       color: 'bg-purple-500',
       hoverColor: 'hover:bg-purple-600',
       path: '/qr-generator'
@@ -68,11 +92,7 @@ function HomeScreen() {
   ];
 
   const handleTileClick = (path) => {
-    console.log("Navigating to", path);
-    // Force a small delay before navigation to ensure context updates are processed
-    setTimeout(() => {
-      navigate(path);
-    }, 10);
+    navigate(path);
   };
 
   const containerVariants = {
@@ -98,7 +118,7 @@ function HomeScreen() {
       animate="visible"
       exit="exit"
       variants={containerVariants}
-      className={`min-h-screen p-8 ${state.accessibility.highContrast ? 'high-contrast' : ''} ${state.accessibility.largeText ? 'large-text' : ''}`}
+      className="min-h-screen p-8"
     >
       {/* Header */}
       <motion.header variants={tileVariants} className="text-center mb-12 relative">
@@ -109,39 +129,13 @@ function HomeScreen() {
           Welcome! How can we help you today?
         </p>
 
-        {/* Date and Time Display */}
-        <div className="flex justify-center items-center space-x-8 text-lg text-secondary-500">
-          <div className="flex items-center space-x-2">
-            <SafeIcon icon={FiCalendar} className="text-primary-500" />
-            <span>{format(currentTime, 'EEEE, MMMM do, yyyy')}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <SafeIcon icon={FiClock} className="text-primary-500" />
-            <span>{format(currentTime, 'h:mm:ss a')}</span>
-          </div>
-        </div>
+        <Clock />
 
         {/* Refresh Button */}
-        <button
-          onClick={handleRefresh}
-          className={`absolute top-0 right-0 text-primary-600 hover:text-primary-700 p-2 rounded-full transition-colors ${isRefreshing ? 'animate-spin' : ''}`}
-          disabled={isRefreshing}
-        >
-          <SafeIcon icon={FiRefreshCw} className="text-xl" />
-        </button>
+        <RefreshButton onClick={handleRefresh} isRefreshing={isRefreshing} />
       </motion.header>
 
-      {state.error && (
-        <div className="max-w-md mx-auto bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 text-center mb-8">
-          <p>{state.error}</p>
-          <button
-            onClick={handleRefresh}
-            className="mt-2 text-red-600 hover:text-red-800 font-medium"
-          >
-            Try Again
-          </button>
-        </div>
-      )}
+      <ErrorBanner message={state.error} onRetry={handleRefresh} className="max-w-md mx-auto" />
 
       {/* Navigation Grid */}
       <motion.div
@@ -152,10 +146,9 @@ function HomeScreen() {
           <motion.div
             key={tile.id}
             variants={tileVariants}
-            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => handleTileClick(tile.path)}
-            className={`${tile.color} ${tile.hoverColor} text-white rounded-3xl p-8 cursor-pointer shadow-xl transition-all duration-300 touch-button group`}
+            className={`${tile.color} ${tile.hoverColor} text-white rounded-3xl p-8 cursor-pointer shadow-xl transition-colors touch-button group`}
             role="button"
             tabIndex={0}
             aria-label={`Navigate to ${tile.title}`}
@@ -201,7 +194,6 @@ function HomeScreen() {
       <div className="fixed bottom-8 right-8 flex flex-col space-y-4">
         <motion.button
           variants={tileVariants}
-          whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => {
             navigate('/admin');
@@ -213,7 +205,6 @@ function HomeScreen() {
         </motion.button>
         <motion.button
           variants={tileVariants}
-          whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => {
             navigate('/accessibility');
@@ -221,7 +212,7 @@ function HomeScreen() {
           className="bg-primary-600 hover:bg-primary-700 text-white rounded-full p-4 shadow-lg transition-colors touch-button"
           aria-label="Accessibility Options"
         >
-          <SafeIcon icon={FiHelpCircle} className="text-2xl" />
+          <SafeIcon icon={MdAccessibilityNew} className="text-2xl" />
         </motion.button>
       </div>
     </motion.div>
