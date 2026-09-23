@@ -1,0 +1,35 @@
+#!/bin/bash
+# The kiosk login session. Started from ~/.config/labwc/autostart by 'kiosk-mode on'.
+#
+# Pi OS starts labwc with --merge-config, so a user autostart does NOT replace
+# /etc/xdg/labwc/autostart: the desktop (pcmanfm), the panel (wf-panel-pi) and kanshi
+# are started as well, each under lwrespawn. This stops the desktop parts and then
+# runs Chromium under lwrespawn, which relaunches it whenever it exits.
+set -u
+. "$(dirname "$(readlink -f "$0")")/kiosk-common.sh"
+
+stop_desktop() {
+  local app
+  for app in pcmanfm-pi wf-panel-pi; do
+    # Stop the respawn loop first, otherwise it restarts the app straight away.
+    pkill -f "lwrespawn /usr/bin/$app" 2>/dev/null
+    pkill -x "$app" 2>/dev/null
+  done
+  pkill -x pcmanfm 2>/dev/null
+}
+
+# The system autostart runs at the same time as this script, so keep stopping the
+# desktop for a while in case it comes up after the first pass.
+(
+  for _ in $(seq 1 30); do
+    stop_desktop
+    sleep 0.5
+  done
+) &
+
+pgrep -x kanshi > /dev/null || /usr/bin/kanshi &
+if [ "$ONSCREEN_KEYBOARD" = yes ] && [ -x /usr/bin/squeekboard ]; then
+  pgrep -x squeekboard > /dev/null || /usr/bin/squeekboard &
+fi
+
+exec /usr/bin/lwrespawn "$KIOSK_HOME/bin/kiosk-browser"

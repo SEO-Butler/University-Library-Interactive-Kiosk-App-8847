@@ -1,7 +1,8 @@
 #!/bin/bash
 # Switch the desktop login between the normal Raspberry Pi desktop and the kiosk.
 # Usage: kiosk-mode on|off|status
-# Takes effect at the next login or reboot.
+# Takes effect at the next login or reboot. To start the kiosk in the current
+# session as well, run ~/kiosk/bin/kiosk-session.
 set -euo pipefail
 . "$(dirname "$(readlink -f "$0")")/kiosk-common.sh"
 
@@ -12,15 +13,11 @@ BIN_DIR="$KIOSK_HOME/bin"
 
 write_autostart() {
   mkdir -p "$(dirname "$AUTOSTART")"
-  # A user autostart replaces /etc/xdg/labwc/autostart, so the desktop, panel and
-  # screen blanking are not started. kanshi still applies the display layout.
+  # Pi OS runs labwc with --merge-config, so this file runs in addition to
+  # /etc/xdg/labwc/autostart. kiosk-session stops the desktop parts that starts.
   {
     echo "$MARKER. Run '$BIN_DIR/kiosk-mode off' to restore the desktop."
-    echo "/usr/bin/kanshi &"
-    if [ "$ONSCREEN_KEYBOARD" = yes ] && [ -x /usr/bin/squeekboard ]; then
-      echo "/usr/bin/squeekboard &"
-    fi
-    echo "/usr/bin/lwrespawn $BIN_DIR/kiosk-browser &"
+    echo "$BIN_DIR/kiosk-session &"
   } > "$AUTOSTART"
 }
 

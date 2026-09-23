@@ -27,8 +27,11 @@ It does **not** change what starts at login.
 ~/kiosk/bin/kiosk-mode status
 ```
 
-In kiosk mode the labwc session starts only the display layout (kanshi), the on-screen
-keyboard and Chromium under `lwrespawn`, which relaunches Chromium whenever it exits.
+In kiosk mode the login runs `~/kiosk/bin/kiosk-session`: it stops the desktop and panel
+(Pi OS runs labwc with `--merge-config`, so the system autostart always runs too), starts
+the on-screen keyboard and runs Chromium under `lwrespawn`, which relaunches Chromium
+whenever it exits. To start the kiosk in the current session without rebooting, run
+`~/kiosk/bin/kiosk-session &`.
 To get out of kiosk mode, press Ctrl+Alt+F2 (or use SSH), log in, run
 `~/kiosk/bin/kiosk-mode off`, then reboot.
 
